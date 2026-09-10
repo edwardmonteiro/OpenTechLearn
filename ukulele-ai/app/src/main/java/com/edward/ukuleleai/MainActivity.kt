@@ -11,8 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.data.song.LocalProgressRepository
+import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.domain.DemoSong
 import com.edward.ukuleleai.domain.Song
 import com.edward.ukuleleai.ui.home.HomeScreen
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                Surface(color = Color(0xFF101312)) {
+                Surface(color = Color(0xFF0D100F)) {
                     UkuleleApp(repository, progressRepository)
                 }
             }
@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
 private sealed interface AppScreen {
     data object Home : AppScreen
     data object ImportSong : AppScreen
+    data class EditSong(val song: Song) : AppScreen
     data class Practice(val song: Song) : AppScreen
 }
 
@@ -55,7 +56,8 @@ private fun UkuleleApp(
             demoSong = DemoSong.song,
             progressPercent = { progressRepository.load(it.id)?.completionPercent ?: 0 },
             onAddSong = { screen = AppScreen.ImportSong },
-            onPlaySong = { screen = AppScreen.Practice(it) }
+            onPlaySong = { screen = AppScreen.Practice(it) },
+            onEditSong = { screen = AppScreen.EditSong(it) }
         )
 
         AppScreen.ImportSong -> ImportSongScreen(
@@ -67,9 +69,23 @@ private fun UkuleleApp(
             }
         )
 
+        is AppScreen.EditSong -> ImportSongScreen(
+            initialChart = repository.getRawChart(current.song.id),
+            isEditing = true,
+            onCancel = { screen = AppScreen.Home },
+            onSave = { raw -> repository.updateChart(current.song.id, raw) },
+            onSavedAndPlay = { song ->
+                localSongs = repository.listSongs()
+                screen = AppScreen.Practice(song)
+            }
+        )
+
         is AppScreen.Practice -> PracticeRoute(
             song = current.song,
-            onExit = { screen = AppScreen.Home }
+            onExit = {
+                localSongs = repository.listSongs()
+                screen = AppScreen.Home
+            }
         )
     }
 }
