@@ -1,6 +1,8 @@
 package com.edward.ukuleleai.ui.practice
 
 import android.app.Application
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.floor
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
     private val progressRepository = LocalProgressRepository(application)
@@ -27,6 +30,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private var startedAtBeat: Double = 0.0
     private var completedRuns: Int = 0
     private var loadedSongId: String? = null
+    private var lastMetronomeBeat: Int = -1
+    private val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
 
     fun loadSong(song: Song) {
         if (loadedSongId == song.id) return
@@ -44,7 +49,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             song = song,
             difficulty = savedDifficulty,
             bpm = saved?.bpm?.coerceIn(40, 160) ?: song.bpm,
-            positionBeats = resumedPosition
+            positionBeats = resumedPosition,
+            soundEnabled = true
         )
     }
 
@@ -58,6 +64,18 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         else startWithCountIn()
     }
 
+    fun toggleSound() {
+        _state.value = _state.value.copy(soundEnabled = !_state.value.soundEnabled)
+    }
+
+    private fun click(accent: Boolean) {
+        if (!_state.value.soundEnabled) return
+        tone.startTone(
+            if (accent) ToneGenerator.TONE_PROP_BEEP2 else ToneGenerator.TONE_PROP_BEEP,
+            if (accent) 70 else 45
+        )
+    }
+
     private fun startWithCountIn() {
         if (_state.value.isPlaying || _state.value.countdown != null) return
         val endBeat = _state.value.song.events.maxOf { it.beat + it.durationBeats }
@@ -69,10 +87,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             val beatDurationMs = (60_000.0 / _state.value.bpm).toLong()
             for (count in 3 downTo 1) {
                 _state.value = _state.value.copy(countdown = count)
+                click(accent = count == 1)
                 delay(beatDurationMs)
             }
             startedAtBeat = _state.value.positionBeats
             startedAtNanos = SystemClock.elapsedRealtimeNanos()
+            lastMetronomeBeat = floor(startedAtBeat).toInt() - 1
             _state.value = _state.value.copy(isPlaying = true, countdown = null)
             while (_state.value.isPlaying) {
                 val elapsedNanos = SystemClock.elapsedRealtimeNanos() - startedAtNanos
@@ -85,8 +105,15 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                     saveProgress()
                     break
                 }
+
+                val integerBeat = floor(beat).toInt()
+                if (integerBeat > lastMetronomeBeat) {
+                    lastMetronomeBeat = integerBeat
+                    click(accent = integerBeat % _state.value.song.beatsPerBar == 0)
+                }
+
                 _state.value = _state.value.copy(positionBeats = beat)
-                delay(16)
+                delay(12)
             }
         }
     }
@@ -134,6 +161,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     override fun onCleared() {
         playbackJob?.cancel()
+        tone.release()
         saveProgress()
     }
 }
