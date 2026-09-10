@@ -29,49 +29,56 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edward.ukuleleai.domain.Song
 
-private val Background = Color(0xFF101312)
-private val Primary = Color(0xFFF5F6F2)
-private val Secondary = Color(0xFFA8B0AB)
-private val Accent = Color(0xFFE8F46A)
+private val Background = Color(0xFF0D100F)
+private val Primary = Color(0xFFF7F8F4)
+private val Secondary = Color(0xFFA7B0AA)
+private val Accent = Color(0xFFE9F45E)
 private val exampleChart = """Title: My First Song
 BPM: 80
 | C | G | Am | F |
 | C | G Am | F | G |"""
 
 @Composable
-fun ImportSongScreen(onCancel: () -> Unit, onSave: (String) -> Result<Song>, onSavedAndPlay: (Song) -> Unit) {
-    var chart by remember { mutableStateOf(exampleChart) }
+fun ImportSongScreen(
+    initialChart: String? = null,
+    isEditing: Boolean = false,
+    onCancel: () -> Unit,
+    onSave: (String) -> Result<Song>,
+    onSavedAndPlay: (Song) -> Unit
+) {
+    var chart by remember(initialChart) { mutableStateOf(initialChart ?: exampleChart) }
     var error by remember { mutableStateOf<String?>(null) }
+
     Column(Modifier.fillMaxSize().background(Background).padding(22.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Column {
-                Text("Add song", color = Primary, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-                Text("One | section = one 4/4 bar.", color = Secondary, fontSize = 12.sp)
+                Text(if (isEditing) "Edit song" else "Add song", color = Primary, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                Text("Edit title, BPM or chord bars. Everything stays on this phone.", color = Secondary, fontSize = 12.sp)
             }
-            Button(onClick = onCancel, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A302D), contentColor = Primary)) { Text("Cancel") }
+            Button(onClick = onCancel, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242A27), contentColor = Primary)) { Text("Cancel") }
         }
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = chart,
             onValueChange = { chart = it; error = null },
             modifier = Modifier.fillMaxWidth().weight(1f),
-            label = { Text("Paste chord chart") },
+            label = { Text(if (isEditing) "Edit chord chart" else "Paste chord chart") },
             textStyle = androidx.compose.ui.text.TextStyle(color = Primary, fontFamily = FontFamily.Monospace, fontSize = 15.sp),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Accent, unfocusedBorderColor = Color(0xFF4A514D),
+                focusedBorderColor = Accent, unfocusedBorderColor = Color(0xFF3F4743),
                 focusedLabelColor = Accent, unfocusedLabelColor = Secondary,
-                cursorColor = Accent, focusedContainerColor = Color(0xFF181D1B), unfocusedContainerColor = Color(0xFF181D1B)
+                cursorColor = Accent, focusedContainerColor = Color(0xFF151A18), unfocusedContainerColor = Color(0xFF151A18)
             )
         )
         error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = Color(0xFFFFA7A7), fontSize = 12.sp) }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Text("Saved only on this phone.", color = Secondary, fontSize = 11.sp)
+            Text("Local only · no cloud save", color = Secondary, fontSize = 11.sp)
             Button(
                 onClick = { onSave(chart).onSuccess(onSavedAndPlay).onFailure { error = it.message ?: "Could not parse chart." } },
                 colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)
-            ) { Text("Save & Play", fontWeight = FontWeight.Bold) }
+            ) { Text(if (isEditing) "Save changes" else "Save & Play", fontWeight = FontWeight.Bold) }
         }
     }
 }
