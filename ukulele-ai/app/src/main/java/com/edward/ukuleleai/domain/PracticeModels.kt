@@ -25,5 +25,6 @@ data class PracticeState(
     val bpm: Int = song.bpm,
     val positionBeats: Double = 0.0,
     val isPlaying: Boolean = false,
-    val countdown: Int? = null
+    val countdown: Int? = null,
+    val soundEnabled: Boolean = true
 )
