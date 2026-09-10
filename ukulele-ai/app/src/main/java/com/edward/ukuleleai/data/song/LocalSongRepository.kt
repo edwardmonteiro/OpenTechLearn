@@ -19,8 +19,17 @@ class LocalSongRepository(context: Context) {
             ).getOrNull()
         }
 
+    fun getRawChart(songId: String): String? =
+        File(songsDir, "$songId.$EXTENSION").takeIf { it.exists() }?.readText()
+
     fun saveChart(raw: String): Result<Song> {
         val id = UUID.randomUUID().toString()
+        return saveChart(raw = raw, id = id)
+    }
+
+    fun updateChart(songId: String, raw: String): Result<Song> = saveChart(raw = raw, id = songId)
+
+    private fun saveChart(raw: String, id: String): Result<Song> {
         return SongChartParser.parse(raw = raw, id = id).mapCatching { song ->
             File(songsDir, "$id.$EXTENSION").writeText(raw.trim() + "\n")
             song
