@@ -6,6 +6,7 @@ import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.edward.ukuleleai.core.audio.LocalPitchDetector
 import com.edward.ukuleleai.data.song.LocalProgressRepository
 import com.edward.ukuleleai.data.song.ProgressSnapshot
 import com.edward.ukuleleai.domain.DemoSong
@@ -22,6 +23,7 @@ import kotlin.math.floor
 
 class PracticeViewModel(application: Application) : AndroidViewModel(application) {
     private val progressRepository = LocalProgressRepository(application)
+    private val pitchDetector = LocalPitchDetector()
     private val _state = MutableStateFlow(PracticeState(song = DemoSong.song))
     val state: StateFlow<PracticeState> = _state.asStateFlow()
 
@@ -38,6 +40,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (loadedSongId != null) saveProgress()
         playbackJob?.cancel()
         playbackJob = null
+        stopListening()
         loadedSongId = song.id
         val saved = progressRepository.load(song.id)
         completedRuns = saved?.completedRuns ?: 0
@@ -56,6 +59,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     fun exit(onExit: () -> Unit) {
         pause(save = true)
+        stopListening()
         onExit()
     }
 
@@ -66,6 +70,39 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleSound() {
         _state.value = _state.value.copy(soundEnabled = !_state.value.soundEnabled)
+    }
+
+    fun startListening() {
+        if (_state.value.listeningEnabled) return
+        _state.value = _state.value.copy(listeningEnabled = true)
+        pitchDetector.start { pitch ->
+            _state.value = if (pitch == null) {
+                _state.value.copy(
+                    detectedNote = null,
+                    detectedFrequencyHz = null,
+                    detectedCents = null,
+                    pitchConfidence = 0f
+                )
+            } else {
+                _state.value.copy(
+                    detectedNote = pitch.note,
+                    detectedFrequencyHz = pitch.frequencyHz,
+                    detectedCents = pitch.cents,
+                    pitchConfidence = pitch.confidence
+                )
+            }
+        }
+    }
+
+    fun stopListening() {
+        pitchDetector.stop()
+        _state.value = _state.value.copy(
+            listeningEnabled = false,
+            detectedNote = null,
+            detectedFrequencyHz = null,
+            detectedCents = null,
+            pitchConfidence = 0f
+        )
     }
 
     private fun click(accent: Boolean) {
@@ -161,6 +198,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     override fun onCleared() {
         playbackJob?.cancel()
+        stopListening()
         tone.release()
         saveProgress()
     }
