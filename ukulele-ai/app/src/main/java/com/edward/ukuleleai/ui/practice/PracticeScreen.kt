@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,6 +34,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -40,43 +45,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.edward.ukuleleai.domain.ChordEvent
 import com.edward.ukuleleai.domain.DifficultyLevel
 import com.edward.ukuleleai.domain.PracticeState
 import com.edward.ukuleleai.domain.Song
+import kotlin.math.abs
 import kotlin.math.floor
 
-private val Bg = Color(0xFF0D100F)
-private val Panel = Color(0xFF151A18)
-private val TextMain = Color(0xFFF7F8F4)
-private val TextDim = Color(0xFFA7B0AA)
-private val Accent = Color(0xFFE9F45E)
-private val Grid = Color(0xFF303733)
-private val Down = Color(0xFF67D8FF)
-private val Up = Color(0xFFFF78B9)
-private val Mute = Color(0xFFFFB454)
-private val Melody = Color(0xFF8BE6C2)
+private val Ink = Color(0xFFF7F8F5)
+private val Muted = Color(0xFF89928D)
+private val Bg = Color(0xFF080A09)
+private val Surface = Color(0xFF101412)
+private val Surface2 = Color(0xFF171C19)
+private val Hairline = Color(0xFF252B28)
+private val Lime = Color(0xFFDDF85B)
+private val Mint = Color(0xFF72E0B7)
+private val Cyan = Color(0xFF64CFF4)
+private val Pink = Color(0xFFFF79B5)
+private val Amber = Color(0xFFFFB15B)
 
 @Composable
 fun PracticeRoute(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.startListening()
     }
 
     LaunchedEffect(song.id) { viewModel.loadSong(song) }
 
     val toggleListening = {
-        if (state.listeningEnabled) {
-            viewModel.stopListening()
-        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        if (state.listeningEnabled) viewModel.stopListening()
+        else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             viewModel.startListening()
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        } else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     PracticeScreen(
@@ -87,7 +88,8 @@ fun PracticeRoute(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel =
         onTempoChange = viewModel::changeTempo,
         onDifficulty = viewModel::setDifficulty,
         onToggleSound = viewModel::toggleSound,
-        onToggleListening = toggleListening
+        onToggleListening = toggleListening,
+        onClearMelody = viewModel::clearMelodyTrail
     )
 }
 
@@ -100,137 +102,159 @@ private fun PracticeScreen(
     onTempoChange: (Int) -> Unit,
     onDifficulty: (DifficultyLevel) -> Unit,
     onToggleSound: () -> Unit,
-    onToggleListening: () -> Unit
+    onToggleListening: () -> Unit,
+    onClearMelody: () -> Unit
 ) {
     val currentChord = currentChord(state)
-    val arrangement = basicArrangement(state.difficulty, currentChord)
+    val progress = songProgress(state)
 
-    Column(Modifier.fillMaxSize().background(Bg).padding(18.dp)) {
+    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 22.dp, vertical = 16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Column {
-                Text(state.song.title, color = TextMain, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("${state.bpm} BPM  ·  Level ${state.difficulty.level}  ·  local", color = TextDim, fontSize = 12.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(
-                    onClick = onToggleListening,
-                    colors = ButtonDefaults.buttonColors(containerColor = if (state.listeningEnabled) Color(0xFF20352E) else Grid)
-                ) {
-                    Text(if (state.listeningEnabled) "Listen ON" else "Listen", color = if (state.listeningEnabled) Melody else TextDim)
+                    onClick = onExit,
+                    shape = CircleShape,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 15.dp, vertical = 10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Surface2, contentColor = Ink)
+                ) { Text("‹", fontSize = 24.sp) }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(state.song.title, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${state.bpm} BPM  ·  ${progress}% complete", color = Muted, fontSize = 11.sp)
                 }
-                Button(onClick = onToggleSound, colors = ButtonDefaults.buttonColors(containerColor = if (state.soundEnabled) Color(0xFF27352F) else Grid)) {
-                    Text(if (state.soundEnabled) "Sound ON" else "Sound OFF", color = if (state.soundEnabled) Accent else TextDim)
-                }
-                Button(onClick = onExit, colors = ButtonDefaults.buttonColors(containerColor = Grid)) { Text("Library") }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Capsule(if (state.detectedNote != null) state.detectedNote!! else "—", "LIVE NOTE", if (state.listeningEnabled) Mint else Muted)
+                Capsule(currentChord ?: "—", "CHORD", Lime)
+                SoftButton(if (state.listeningEnabled) "Listening" else "Listen", state.listeningEnabled, onToggleListening)
+                SoftButton(if (state.soundEnabled) "Sound" else "Muted", state.soundEnabled, onToggleSound)
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-        Row(
-            Modifier.fillMaxWidth().background(Color(0xFF121715), RoundedCornerShape(16.dp)).border(1.dp, Grid, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            InfoCell("MELODY", state.detectedNote ?: if (state.listeningEnabled) "listening…" else "—", Melody)
-            InfoCell("CHORD", currentChord ?: "—", Accent)
-            InfoCell("ARRANGEMENT", arrangement, TextMain)
-            val cents = state.detectedCents
-            InfoCell("TUNING", if (cents == null) "—" else if (kotlin.math.abs(cents) <= 6) "in tune" else "${if (cents > 0) "+" else ""}$cents¢", if (cents != null && kotlin.math.abs(cents) <= 6) Melody else TextDim)
-        }
+        Spacer(Modifier.height(14.dp))
 
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.weight(1f).fillMaxWidth().background(Panel, RoundedCornerShape(22.dp)).border(1.dp, Grid, RoundedCornerShape(22.dp))) {
-            Timeline(state, Modifier.fillMaxSize())
-            state.countdown?.let {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(it.toString(), color = Accent, fontSize = 80.sp, fontWeight = FontWeight.Bold)
+        Box(
+            Modifier.weight(1f).fillMaxWidth()
+                .background(Surface, RoundedCornerShape(28.dp))
+                .border(1.dp, Hairline, RoundedCornerShape(28.dp))
+        ) {
+            LiveCanvas(state, Modifier.fillMaxSize())
+
+            if (!state.listeningEnabled) {
+                Column(
+                    Modifier.align(Alignment.TopStart).padding(22.dp)
+                        .background(Color(0xCC171C19), RoundedCornerShape(18.dp)).padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text("Hear yourself play", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Turn on Listen to draw your melody live.", color = Muted, fontSize = 11.sp)
+                }
+            }
+
+            state.countdown?.let { count ->
+                Box(Modifier.fillMaxSize().background(Color(0x99080A09)), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(count.toString(), color = Lime, fontSize = 92.sp, fontWeight = FontWeight.Light)
+                        Text("READY", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                    }
                 }
             }
         }
 
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onTempoChange(-5) }) { Text("−5") }
-                Button(onClick = onPlayPause, colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg)) {
-                    Text(if (state.isPlaying || state.countdown != null) "Pause" else "Play", fontWeight = FontWeight.Bold)
-                }
-                Button(onClick = onRestart) { Text("Restart") }
-                Button(onClick = { onTempoChange(5) }) { Text("+5") }
+
+        Row(
+            Modifier.fillMaxWidth().background(Surface, RoundedCornerShape(22.dp)).border(1.dp, Hairline, RoundedCornerShape(22.dp)).padding(10.dp),
+            Arrangement.SpaceBetween,
+            Alignment.CenterVertically
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                DockButton("−5", onClick = { onTempoChange(-5) })
+                DockButton("↺", onClick = onRestart)
+                DockButton("Clear melody", onClick = onClearMelody)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+            Button(
+                onClick = onPlayPause,
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Bg),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 34.dp, vertical = 12.dp)
+            ) {
+                Text(if (state.isPlaying || state.countdown != null) "PAUSE" else "PLAY", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 DifficultyLevel.entries.forEach { level ->
+                    val selected = level == state.difficulty
                     Button(
                         onClick = { onDifficulty(level) },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (level == state.difficulty) Accent else Grid, contentColor = if (level == state.difficulty) Bg else TextMain)
-                    ) { Text(level.level.toString()) }
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 13.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selected) Ink else Surface2,
+                            contentColor = if (selected) Bg else Muted
+                        )
+                    ) { Text(level.level.toString(), fontWeight = FontWeight.Bold) }
                 }
+                DockButton("+5", onClick = { onTempoChange(5) })
             }
         }
     }
 }
 
 @Composable
-private fun InfoCell(label: String, value: String, valueColor: Color) {
-    Column {
-        Text(label, color = TextDim, fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-        Text(value, color = valueColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-    }
-}
-
-private fun currentChord(state: PracticeState): String? = state.song.events
-    .lastOrNull { state.positionBeats >= it.beat && state.positionBeats < it.beat + it.durationBeats }
-    ?.chord
-    ?: state.song.events.firstOrNull()?.chord
-
-private fun basicArrangement(level: DifficultyLevel, chord: String?): String {
-    if (chord == null) return "—"
-    return when (level) {
-        DifficultyLevel.ONE -> "$chord · one strum"
-        DifficultyLevel.TWO -> "$chord · downbeats"
-        DifficultyLevel.THREE -> "$chord · pop groove"
-        DifficultyLevel.FOUR -> "$chord · mute + syncopation"
+private fun Capsule(value: String, label: String, color: Color) {
+    Column(horizontalAlignment = Alignment.End) {
+        Text(label, color = Muted, fontSize = 8.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = color, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun Timeline(state: PracticeState, modifier: Modifier) {
+private fun SoftButton(text: String, active: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (active) Color(0xFF1C2923) else Surface2,
+            contentColor = if (active) Mint else Muted
+        )
+    ) { Text(text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
+}
+
+@Composable
+private fun DockButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Surface2, contentColor = Ink),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+    ) { Text(text, fontSize = 11.sp) }
+}
+
+@Composable
+private fun LiveCanvas(state: PracticeState, modifier: Modifier) {
     val density = LocalDensity.current
-    val chordPaint = remember(density) {
-        Paint().apply {
-            color = android.graphics.Color.WHITE
-            textSize = with(density) { 28.sp.toPx() }
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-    }
-    val smallPaint = remember(density) {
-        Paint().apply {
-            color = android.graphics.Color.LTGRAY
-            textSize = with(density) { 12.sp.toPx() }
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-        }
-    }
-    val downPaint = remember(density) { rhythmPaint(density.run { 19.sp.toPx() }, android.graphics.Color.rgb(103, 216, 255)) }
-    val upPaint = remember(density) { rhythmPaint(density.run { 19.sp.toPx() }, android.graphics.Color.rgb(255, 120, 185)) }
-    val mutePaint = remember(density) { rhythmPaint(density.run { 17.sp.toPx() }, android.graphics.Color.rgb(255, 180, 84)) }
-    val melodyPaint = remember(density) { rhythmPaint(density.run { 16.sp.toPx() }, android.graphics.Color.rgb(139, 230, 194)) }
+    val labelPaint = remember(density) { paint(11.sp.value * density.density, android.graphics.Color.rgb(137,146,141), false) }
+    val chordPaint = remember(density) { paint(24.sp.value * density.density, android.graphics.Color.WHITE, true) }
+    val notePaint = remember(density) { paint(13.sp.value * density.density, android.graphics.Color.rgb(114,224,183), true) }
+    val downPaint = remember(density) { paint(17.sp.value * density.density, android.graphics.Color.rgb(100,207,244), true) }
+    val upPaint = remember(density) { paint(17.sp.value * density.density, android.graphics.Color.rgb(255,121,181), true) }
+    val mutePaint = remember(density) { paint(15.sp.value * density.density, android.graphics.Color.rgb(255,177,91), true) }
 
-    val strum = when (state.difficulty) {
-        DifficultyLevel.ONE -> listOf("↓")
-        DifficultyLevel.TWO -> listOf("↓", "↓")
-        DifficultyLevel.THREE -> listOf("↓", "↓", "↑", "↑", "↓", "↑")
-        DifficultyLevel.FOUR -> listOf("↓", "x", "↓", "↑", "↑", "↓", "↑")
-    }
+    Canvas(modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+        val playX = size.width * 0.31f
+        val pxPerBeat = 94.dp.toPx()
+        val melodyTop = 46.dp.toPx()
+        val melodyBottom = size.height * 0.56f
+        val chordTop = size.height * 0.67f
+        val chordHeight = 92.dp.toPx()
 
-    Canvas(modifier.padding(14.dp)) {
-        val playX = size.width * 0.24f
-        val centerY = size.height * 0.54f
-        val pxPerBeat = 92.dp.toPx()
-        val top = centerY - 58.dp.toPx()
-        val h = 116.dp.toPx()
+        // Quiet pitch guide. C4..C6 mapped vertically, enough for typical melody practice.
+        for (midi in 60..84 step 2) {
+            val y = midiToY(midi, melodyTop, melodyBottom)
+            drawLine(Hairline.copy(alpha = 0.55f), Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+        }
 
         val firstBeat = floor(state.positionBeats - playX / pxPerBeat).toInt() - 1
         val lastBeat = floor(state.positionBeats + (size.width - playX) / pxPerBeat).toInt() + 2
@@ -238,66 +262,117 @@ private fun Timeline(state: PracticeState, modifier: Modifier) {
             val x = playX + ((beat - state.positionBeats) * pxPerBeat).toFloat()
             if (x in 0f..size.width) {
                 val bar = beat >= 0 && beat % state.song.beatsPerBar == 0
-                drawLine(if (bar) TextDim else Grid, Offset(x, top - 34.dp.toPx()), Offset(x, top + h + 34.dp.toPx()), if (bar) 2.dp.toPx() else 1.dp.toPx())
-                if (beat >= 0) drawContext.canvas.nativeCanvas.drawText(((beat % 4) + 1).toString(), x, top + h + 26.dp.toPx(), smallPaint)
+                drawLine(
+                    if (bar) Color(0xFF38403C) else Hairline.copy(alpha = 0.7f),
+                    Offset(x, 24.dp.toPx()),
+                    Offset(x, size.height - 24.dp.toPx()),
+                    if (bar) 1.5.dp.toPx() else 1.dp.toPx()
+                )
+                if (beat >= 0 && bar) {
+                    drawContext.canvas.nativeCanvas.drawText("${beat / state.song.beatsPerBar + 1}", x + 7.dp.toPx(), 18.dp.toPx(), labelPaint)
+                }
             }
         }
 
+        // Melody trail from microphone.
+        val visibleTrail = state.melodyTrail.filter { point ->
+            val x = playX + ((point.beat - state.positionBeats) * pxPerBeat).toFloat()
+            x in -20.dp.toPx()..(size.width + 20.dp.toPx())
+        }
+        if (visibleTrail.isNotEmpty()) {
+            val path = Path()
+            visibleTrail.forEachIndexed { index, point ->
+                val x = playX + ((point.beat - state.positionBeats) * pxPerBeat).toFloat()
+                val y = midiToY(point.midi, melodyTop, melodyBottom)
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, Mint.copy(alpha = 0.22f), style = Stroke(10.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(path, Mint, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+
+            visibleTrail.forEachIndexed { index, point ->
+                if (index % 4 == 0 || index == visibleTrail.lastIndex) {
+                    val x = playX + ((point.beat - state.positionBeats) * pxPerBeat).toFloat()
+                    val y = midiToY(point.midi, melodyTop, melodyBottom)
+                    drawCircle(Mint, 4.2.dp.toPx(), Offset(x, y))
+                }
+            }
+        }
+
+        // Current detected pitch floats at the execution axis.
+        state.detectedMidi?.let { midi ->
+            val y = midiToY(midi, melodyTop, melodyBottom)
+            drawCircle(Mint.copy(alpha = 0.18f), 16.dp.toPx(), Offset(playX, y))
+            drawCircle(Mint, 5.5.dp.toPx(), Offset(playX, y))
+            state.detectedNote?.let { note ->
+                drawContext.canvas.nativeCanvas.drawText(note, playX + 30.dp.toPx(), y + 5.dp.toPx(), notePaint)
+            }
+        }
+
+        // Chord lane, quieter than the melody.
         state.song.events.forEach { event ->
             val x = playX + ((event.beat - state.positionBeats) * pxPerBeat).toFloat()
-            val w = (event.durationBeats * pxPerBeat).toFloat().coerceAtLeast(78.dp.toPx())
+            val w = (event.durationBeats * pxPerBeat).toFloat().coerceAtLeast(74.dp.toPx())
             if (x + w >= 0f && x <= size.width) {
                 val active = state.positionBeats >= event.beat && state.positionBeats < event.beat + event.durationBeats
                 drawRoundRect(
-                    color = if (active) Color(0xFF24322C) else Color(0xFF202623),
-                    topLeft = Offset(x + 5.dp.toPx(), top),
-                    size = Size((w - 10.dp.toPx()).coerceAtLeast(1f), h),
+                    color = if (active) Color(0xFF222B26) else Color(0xFF171C19),
+                    topLeft = Offset(x + 4.dp.toPx(), chordTop),
+                    size = Size((w - 8.dp.toPx()).coerceAtLeast(1f), chordHeight),
                     cornerRadius = CornerRadius(18.dp.toPx())
                 )
-                if (active) {
-                    drawRoundRect(Accent, Offset(x + 5.dp.toPx(), top), Size((w - 10.dp.toPx()).coerceAtLeast(1f), h), CornerRadius(18.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
-                }
-
-                val cx = x + w / 2f
-                drawContext.canvas.nativeCanvas.drawText(event.chord, cx, top + 44.dp.toPx(), chordPaint)
-
-                val spacing = 22.dp.toPx()
-                val startX = cx - ((strum.size - 1) * spacing / 2f)
-                strum.forEachIndexed { index, symbol ->
-                    val paint = when (symbol) {
-                        "↓" -> downPaint
-                        "↑" -> upPaint
-                        else -> mutePaint
-                    }
-                    drawContext.canvas.nativeCanvas.drawText(symbol, startX + index * spacing, top + 82.dp.toPx(), paint)
+                if (active) drawRoundRect(
+                    Lime.copy(alpha = 0.8f),
+                    Offset(x + 4.dp.toPx(), chordTop),
+                    Size((w - 8.dp.toPx()).coerceAtLeast(1f), chordHeight),
+                    CornerRadius(18.dp.toPx()),
+                    style = Stroke(2.dp.toPx())
+                )
+                val cx = x + w / 2
+                drawContext.canvas.nativeCanvas.drawText(event.chord, cx, chordTop + 37.dp.toPx(), chordPaint)
+                val rhythm = strumPattern(state.difficulty)
+                val spacing = 20.dp.toPx()
+                val start = cx - (rhythm.size - 1) * spacing / 2
+                rhythm.forEachIndexed { i, s ->
+                    val p = when (s) { "↓" -> downPaint; "↑" -> upPaint; else -> mutePaint }
+                    drawContext.canvas.nativeCanvas.drawText(s, start + i * spacing, chordTop + 68.dp.toPx(), p)
                 }
             }
         }
 
-        drawLine(Accent, Offset(playX, 24.dp.toPx()), Offset(playX, size.height - 18.dp.toPx()), 4.dp.toPx())
-        drawCircle(Accent, 7.dp.toPx(), Offset(playX, centerY))
-        drawContext.canvas.nativeCanvas.drawText("PLAY", playX, 18.dp.toPx(), smallPaint)
-
-        state.detectedNote?.let { note ->
-            drawRoundRect(
-                Melody.copy(alpha = 0.12f),
-                Offset(playX - 36.dp.toPx(), centerY - 94.dp.toPx()),
-                Size(72.dp.toPx(), 28.dp.toPx()),
-                CornerRadius(12.dp.toPx())
-            )
-            drawContext.canvas.nativeCanvas.drawText(note, playX, centerY - 74.dp.toPx(), melodyPaint)
-        }
-
-        drawContext.canvas.nativeCanvas.drawText("↓ down", size.width - 172.dp.toPx(), 22.dp.toPx(), downPaint)
-        drawContext.canvas.nativeCanvas.drawText("↑ up", size.width - 102.dp.toPx(), 22.dp.toPx(), upPaint)
-        drawContext.canvas.nativeCanvas.drawText("x mute", size.width - 34.dp.toPx(), 22.dp.toPx(), mutePaint)
+        // Execution axis: one luminous line, nothing else competes with it.
+        drawLine(Lime.copy(alpha = 0.18f), Offset(playX, 12.dp.toPx()), Offset(playX, size.height - 12.dp.toPx()), 12.dp.toPx(), cap = StrokeCap.Round)
+        drawLine(Lime, Offset(playX, 12.dp.toPx()), Offset(playX, size.height - 12.dp.toPx()), 2.5.dp.toPx(), cap = StrokeCap.Round)
+        drawCircle(Lime, 5.dp.toPx(), Offset(playX, chordTop + chordHeight / 2))
+        drawContext.canvas.nativeCanvas.drawText("NOW", playX, size.height - 5.dp.toPx(), labelPaint)
     }
 }
 
-private fun rhythmPaint(size: Float, color: Int): Paint = Paint().apply {
+private fun midiToY(midi: Int, top: Float, bottom: Float): Float {
+    val clamped = midi.coerceIn(60, 84)
+    val ratio = (clamped - 60) / 24f
+    return bottom - ratio * (bottom - top)
+}
+
+private fun currentChord(state: PracticeState): String? = state.song.events
+    .lastOrNull { state.positionBeats >= it.beat && state.positionBeats < it.beat + it.durationBeats }?.chord
+    ?: state.song.events.firstOrNull()?.chord
+
+private fun songProgress(state: PracticeState): Int {
+    val end = state.song.events.maxOfOrNull { it.beat + it.durationBeats } ?: return 0
+    return ((state.positionBeats / end) * 100.0).toInt().coerceIn(0, 100)
+}
+
+private fun strumPattern(level: DifficultyLevel): List<String> = when (level) {
+    DifficultyLevel.ONE -> listOf("↓")
+    DifficultyLevel.TWO -> listOf("↓", "↓")
+    DifficultyLevel.THREE -> listOf("↓", "↓", "↑", "↑", "↓", "↑")
+    DifficultyLevel.FOUR -> listOf("↓", "x", "↓", "↑", "↑", "↓", "↑")
+}
+
+private fun paint(size: Float, color: Int, bold: Boolean): Paint = Paint().apply {
     this.color = color
     textSize = size
     textAlign = Paint.Align.CENTER
     isAntiAlias = true
-    typeface = android.graphics.Typeface.DEFAULT_BOLD
+    typeface = if (bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
 }
