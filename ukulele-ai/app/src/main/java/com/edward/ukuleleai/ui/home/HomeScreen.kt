@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,12 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edward.ukuleleai.domain.Song
 
-private val Background = Color(0xFF0D100F)
-private val Surface = Color(0xFF151A18)
-private val Primary = Color(0xFFF7F8F4)
-private val Secondary = Color(0xFFA7B0AA)
-private val Accent = Color(0xFFE9F45E)
-private val Border = Color(0xFF303733)
+private val Bg = Color(0xFF080A09)
+private val Surface = Color(0xFF111512)
+private val Surface2 = Color(0xFF181D1A)
+private val Ink = Color(0xFFF7F8F5)
+private val Muted = Color(0xFF89928D)
+private val Lime = Color(0xFFDDF85B)
+private val Hairline = Color(0xFF262C29)
 
 @Composable
 fun HomeScreen(
@@ -43,21 +46,33 @@ fun HomeScreen(
     onPlaySong: (Song) -> Unit,
     onEditSong: (Song) -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(Background).padding(24.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+    Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 28.dp, vertical = 22.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Top) {
             Column {
-                Text("Ukulele AI", color = Primary, fontSize = 29.sp, fontWeight = FontWeight.Bold)
-                Text("Your songs. Your level. Stored on this phone.", color = Secondary, fontSize = 13.sp)
+                Text("Ukulele", color = Ink, fontSize = 34.sp, fontWeight = FontWeight.Light)
+                Text("Play what you love.", color = Muted, fontSize = 14.sp)
             }
-            Button(onClick = onAddSong, colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Background)) {
-                Text("+ Add song", fontWeight = FontWeight.Bold)
-            }
+            Button(
+                onClick = onAddSong,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Bg),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+            ) { Text("＋  Add song", fontWeight = FontWeight.Bold) }
         }
-        Spacer(Modifier.height(22.dp))
-        Text("START PLAYING", color = Secondary, fontSize = 11.sp, letterSpacing = 1.4.sp)
-        Spacer(Modifier.height(10.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { SongCard(demoSong, "DEMO", progressPercent(demoSong), onPlay = { onPlaySong(demoSong) }) }
+
+        Spacer(Modifier.height(28.dp))
+        Text("YOUR MUSIC", color = Muted, fontSize = 9.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            item {
+                SongCard(
+                    song = demoSong,
+                    label = "DEMO",
+                    progress = progressPercent(demoSong),
+                    onPlay = { onPlaySong(demoSong) }
+                )
+            }
             items(songs, key = { it.id }) { song ->
                 SongCard(
                     song = song,
@@ -68,16 +83,27 @@ fun HomeScreen(
                 )
             }
         }
-        Spacer(Modifier.height(22.dp))
-        Column(
-            Modifier.fillMaxWidth().weight(1f).background(Surface, RoundedCornerShape(20.dp))
-                .border(1.dp, Border, RoundedCornerShape(20.dp)).padding(20.dp)
+
+        Spacer(Modifier.height(20.dp))
+
+        Row(
+            Modifier.fillMaxWidth().weight(1f).background(Surface, RoundedCornerShape(28.dp)).border(1.dp, Hairline, RoundedCornerShape(28.dp)).padding(24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
         ) {
-            Text("M0.3", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(7.dp))
-            Text("Play with color-coded strums, local metronome and editable songs.", color = Primary, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            Text("No account. No cloud database. Audio and progress remain local.", color = Secondary, fontSize = 13.sp)
+            Column(Modifier.weight(1f)) {
+                Text("LIVE MELODY", color = Lime, fontSize = 9.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text("See your playing become music.", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                Spacer(Modifier.height(8.dp))
+                Text("Your notes draw themselves across the song while chords and rhythm stay in context.", color = Muted, fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(28.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text("M0.5", color = Muted, fontSize = 10.sp)
+                Text("Local audio", color = Muted, fontSize = 10.sp)
+                Text("No account", color = Muted, fontSize = 10.sp)
+            }
         }
     }
 }
@@ -91,20 +117,29 @@ private fun SongCard(
     onEdit: (() -> Unit)? = null
 ) {
     Column(
-        Modifier.width(230.dp).height(142.dp).background(Surface, RoundedCornerShape(18.dp))
-            .border(1.dp, Border, RoundedCornerShape(18.dp)).padding(16.dp),
+        Modifier.width(246.dp).height(148.dp).background(Surface, RoundedCornerShape(24.dp))
+            .border(1.dp, Hairline, RoundedCornerShape(24.dp)).clickable(onClick = onPlay).padding(18.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Text(label, color = Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(label, color = Lime, fontSize = 8.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
             onEdit?.let {
-                Text("EDIT", color = Secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = it).padding(6.dp))
+                Box(
+                    Modifier.background(Surface2, RoundedCornerShape(12.dp)).clickable(onClick = it).padding(horizontal = 10.dp, vertical = 6.dp)
+                ) { Text("Edit", color = Muted, fontSize = 10.sp) }
             }
         }
-        Column(Modifier.clickable(onClick = onPlay).fillMaxWidth()) {
-            Text(song.title, color = Primary, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text("${song.bpm} BPM · ${song.events.size} chord changes", color = Secondary, fontSize = 11.sp)
-            if (progress > 0) Text("Resume at $progress%", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+
+        Column {
+            Text(song.title, color = Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Spacer(Modifier.height(3.dp))
+            Text("${song.bpm} BPM  ·  ${song.events.size} changes", color = Muted, fontSize = 10.sp)
+            if (progress > 0) {
+                Spacer(Modifier.height(9.dp))
+                Box(Modifier.fillMaxWidth().height(3.dp).background(Hairline, RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxWidth(progress / 100f).height(3.dp).background(Lime, RoundedCornerShape(2.dp)))
+                }
+            }
         }
     }
 }
