@@ -1,6 +1,10 @@
 package com.edward.ukuleleai.ui.practice
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Paint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,11 +33,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edward.ukuleleai.domain.ChordEvent
 import com.edward.ukuleleai.domain.DifficultyLevel
 import com.edward.ukuleleai.domain.PracticeState
 import com.edward.ukuleleai.domain.Song
@@ -48,11 +55,30 @@ private val Grid = Color(0xFF303733)
 private val Down = Color(0xFF67D8FF)
 private val Up = Color(0xFFFF78B9)
 private val Mute = Color(0xFFFFB454)
+private val Melody = Color(0xFF8BE6C2)
 
 @Composable
 fun PracticeRoute(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.startListening()
+    }
+
     LaunchedEffect(song.id) { viewModel.loadSong(song) }
+
+    val toggleListening = {
+        if (state.listeningEnabled) {
+            viewModel.stopListening()
+        } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            viewModel.startListening()
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     PracticeScreen(
         state = state,
         onExit = { viewModel.exit(onExit) },
@@ -60,7 +86,8 @@ fun PracticeRoute(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel =
         onRestart = viewModel::restart,
         onTempoChange = viewModel::changeTempo,
         onDifficulty = viewModel::setDifficulty,
-        onToggleSound = viewModel::toggleSound
+        onToggleSound = viewModel::toggleSound,
+        onToggleListening = toggleListening
     )
 }
 
@@ -72,8 +99,12 @@ private fun PracticeScreen(
     onRestart: () -> Unit,
     onTempoChange: (Int) -> Unit,
     onDifficulty: (DifficultyLevel) -> Unit,
-    onToggleSound: () -> Unit
+    onToggleSound: () -> Unit,
+    onToggleListening: () -> Unit
 ) {
+    val currentChord = currentChord(state)
+    val arrangement = basicArrangement(state.difficulty, currentChord)
+
     Column(Modifier.fillMaxSize().background(Bg).padding(18.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Column {
@@ -81,13 +112,33 @@ private fun PracticeScreen(
                 Text("${state.bpm} BPM  ·  Level ${state.difficulty.level}  ·  local", color = TextDim, fontSize = 12.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onToggleListening,
+                    colors = ButtonDefaults.buttonColors(containerColor = if (state.listeningEnabled) Color(0xFF20352E) else Grid)
+                ) {
+                    Text(if (state.listeningEnabled) "Listen ON" else "Listen", color = if (state.listeningEnabled) Melody else TextDim)
+                }
                 Button(onClick = onToggleSound, colors = ButtonDefaults.buttonColors(containerColor = if (state.soundEnabled) Color(0xFF27352F) else Grid)) {
                     Text(if (state.soundEnabled) "Sound ON" else "Sound OFF", color = if (state.soundEnabled) Accent else TextDim)
                 }
                 Button(onClick = onExit, colors = ButtonDefaults.buttonColors(containerColor = Grid)) { Text("Library") }
             }
         }
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier.fillMaxWidth().background(Color(0xFF121715), RoundedCornerShape(16.dp)).border(1.dp, Grid, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            InfoCell("MELODY", state.detectedNote ?: if (state.listeningEnabled) "listening…" else "—", Melody)
+            InfoCell("CHORD", currentChord ?: "—", Accent)
+            InfoCell("ARRANGEMENT", arrangement, TextMain)
+            val cents = state.detectedCents
+            InfoCell("TUNING", if (cents == null) "—" else if (kotlin.math.abs(cents) <= 6) "in tune" else "${if (cents > 0) "+" else ""}$cents¢", if (cents != null && kotlin.math.abs(cents) <= 6) Melody else TextDim)
+        }
+
+        Spacer(Modifier.height(10.dp))
         Box(Modifier.weight(1f).fillMaxWidth().background(Panel, RoundedCornerShape(22.dp)).border(1.dp, Grid, RoundedCornerShape(22.dp))) {
             Timeline(state, Modifier.fillMaxSize())
             state.countdown?.let {
@@ -96,6 +147,7 @@ private fun PracticeScreen(
                 }
             }
         }
+
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -115,6 +167,29 @@ private fun PracticeScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InfoCell(label: String, value: String, valueColor: Color) {
+    Column {
+        Text(label, color = TextDim, fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = valueColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+private fun currentChord(state: PracticeState): String? = state.song.events
+    .lastOrNull { state.positionBeats >= it.beat && state.positionBeats < it.beat + it.durationBeats }
+    ?.chord
+    ?: state.song.events.firstOrNull()?.chord
+
+private fun basicArrangement(level: DifficultyLevel, chord: String?): String {
+    if (chord == null) return "—"
+    return when (level) {
+        DifficultyLevel.ONE -> "$chord · one strum"
+        DifficultyLevel.TWO -> "$chord · downbeats"
+        DifficultyLevel.THREE -> "$chord · pop groove"
+        DifficultyLevel.FOUR -> "$chord · mute + syncopation"
     }
 }
 
@@ -141,6 +216,7 @@ private fun Timeline(state: PracticeState, modifier: Modifier) {
     val downPaint = remember(density) { rhythmPaint(density.run { 19.sp.toPx() }, android.graphics.Color.rgb(103, 216, 255)) }
     val upPaint = remember(density) { rhythmPaint(density.run { 19.sp.toPx() }, android.graphics.Color.rgb(255, 120, 185)) }
     val mutePaint = remember(density) { rhythmPaint(density.run { 17.sp.toPx() }, android.graphics.Color.rgb(255, 180, 84)) }
+    val melodyPaint = remember(density) { rhythmPaint(density.run { 16.sp.toPx() }, android.graphics.Color.rgb(139, 230, 194)) }
 
     val strum = when (state.difficulty) {
         DifficultyLevel.ONE -> listOf("↓")
@@ -201,6 +277,16 @@ private fun Timeline(state: PracticeState, modifier: Modifier) {
         drawLine(Accent, Offset(playX, 24.dp.toPx()), Offset(playX, size.height - 18.dp.toPx()), 4.dp.toPx())
         drawCircle(Accent, 7.dp.toPx(), Offset(playX, centerY))
         drawContext.canvas.nativeCanvas.drawText("PLAY", playX, 18.dp.toPx(), smallPaint)
+
+        state.detectedNote?.let { note ->
+            drawRoundRect(
+                Melody.copy(alpha = 0.12f),
+                Offset(playX - 36.dp.toPx(), centerY - 94.dp.toPx()),
+                Size(72.dp.toPx(), 28.dp.toPx()),
+                CornerRadius(12.dp.toPx())
+            )
+            drawContext.canvas.nativeCanvas.drawText(note, playX, centerY - 74.dp.toPx(), melodyPaint)
+        }
 
         drawContext.canvas.nativeCanvas.drawText("↓ down", size.width - 172.dp.toPx(), 22.dp.toPx(), downPaint)
         drawContext.canvas.nativeCanvas.drawText("↑ up", size.width - 102.dp.toPx(), 22.dp.toPx(), upPaint)
