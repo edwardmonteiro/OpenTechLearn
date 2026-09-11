@@ -11,8 +11,8 @@ android {
         applicationId = "com.edward.ukuleleai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.4.0-m0"
+        versionCode = 4
+        versionName = "0.5.0-m0"
     }
 
     buildFeatures {
