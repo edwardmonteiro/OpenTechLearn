@@ -15,6 +15,14 @@ data class ChordEvent(
     val strumHint: String = "↓"
 )
 
+data class MelodyPoint(
+    val beat: Double,
+    val note: String,
+    val midi: Int,
+    val cents: Int,
+    val confidence: Float
+)
+
 enum class DifficultyLevel(val level: Int) {
     ONE(1), TWO(2), THREE(3), FOUR(4)
 }
@@ -29,7 +37,9 @@ data class PracticeState(
     val soundEnabled: Boolean = true,
     val listeningEnabled: Boolean = false,
     val detectedNote: String? = null,
+    val detectedMidi: Int? = null,
     val detectedFrequencyHz: Float? = null,
     val detectedCents: Int? = null,
-    val pitchConfidence: Float = 0f
+    val pitchConfidence: Float = 0f,
+    val melodyTrail: List<MelodyPoint> = emptyList()
 )
