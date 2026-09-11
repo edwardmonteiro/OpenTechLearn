@@ -26,5 +26,10 @@ data class PracticeState(
     val positionBeats: Double = 0.0,
     val isPlaying: Boolean = false,
     val countdown: Int? = null,
-    val soundEnabled: Boolean = true
+    val soundEnabled: Boolean = true,
+    val listeningEnabled: Boolean = false,
+    val detectedNote: String? = null,
+    val detectedFrequencyHz: Float? = null,
+    val detectedCents: Int? = null,
+    val pitchConfidence: Float = 0f
 )
