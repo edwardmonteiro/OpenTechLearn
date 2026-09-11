@@ -11,6 +11,7 @@ import com.edward.ukuleleai.data.song.LocalProgressRepository
 import com.edward.ukuleleai.data.song.ProgressSnapshot
 import com.edward.ukuleleai.domain.DemoSong
 import com.edward.ukuleleai.domain.DifficultyLevel
+import com.edward.ukuleleai.domain.MelodyPoint
 import com.edward.ukuleleai.domain.PracticeState
 import com.edward.ukuleleai.domain.Song
 import kotlinx.coroutines.Job
@@ -33,7 +34,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private var completedRuns: Int = 0
     private var loadedSongId: String? = null
     private var lastMetronomeBeat: Int = -1
-    private val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+    private val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 42)
 
     fun loadSong(song: Song) {
         if (loadedSongId == song.id) return
@@ -76,19 +77,37 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (_state.value.listeningEnabled) return
         _state.value = _state.value.copy(listeningEnabled = true)
         pitchDetector.start { pitch ->
-            _state.value = if (pitch == null) {
-                _state.value.copy(
+            val current = _state.value
+            if (pitch == null) {
+                _state.value = current.copy(
                     detectedNote = null,
+                    detectedMidi = null,
                     detectedFrequencyHz = null,
                     detectedCents = null,
                     pitchConfidence = 0f
                 )
             } else {
-                _state.value.copy(
+                val shouldCapture = current.isPlaying && pitch.confidence >= 0.65f
+                val previous = current.melodyTrail.lastOrNull()
+                val farEnough = previous == null || current.positionBeats - previous.beat >= 0.08
+                val noteChanged = previous?.midi != pitch.midi
+                val newTrail = if (shouldCapture && (farEnough || noteChanged)) {
+                    (current.melodyTrail + MelodyPoint(
+                        beat = current.positionBeats,
+                        note = pitch.note,
+                        midi = pitch.midi,
+                        cents = pitch.cents,
+                        confidence = pitch.confidence
+                    )).takeLast(240)
+                } else current.melodyTrail
+
+                _state.value = current.copy(
                     detectedNote = pitch.note,
+                    detectedMidi = pitch.midi,
                     detectedFrequencyHz = pitch.frequencyHz,
                     detectedCents = pitch.cents,
-                    pitchConfidence = pitch.confidence
+                    pitchConfidence = pitch.confidence,
+                    melodyTrail = newTrail
                 )
             }
         }
@@ -99,17 +118,22 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         _state.value = _state.value.copy(
             listeningEnabled = false,
             detectedNote = null,
+            detectedMidi = null,
             detectedFrequencyHz = null,
             detectedCents = null,
             pitchConfidence = 0f
         )
     }
 
+    fun clearMelodyTrail() {
+        _state.value = _state.value.copy(melodyTrail = emptyList())
+    }
+
     private fun click(accent: Boolean) {
         if (!_state.value.soundEnabled) return
         tone.startTone(
             if (accent) ToneGenerator.TONE_PROP_BEEP2 else ToneGenerator.TONE_PROP_BEEP,
-            if (accent) 70 else 45
+            if (accent) 62 else 35
         )
     }
 
@@ -117,7 +141,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (_state.value.isPlaying || _state.value.countdown != null) return
         val endBeat = _state.value.song.events.maxOf { it.beat + it.durationBeats }
         if (_state.value.positionBeats >= endBeat - 0.001) {
-            _state.value = _state.value.copy(positionBeats = 0.0)
+            _state.value = _state.value.copy(positionBeats = 0.0, melodyTrail = emptyList())
         }
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
@@ -165,7 +189,12 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun restart() {
         playbackJob?.cancel()
         playbackJob = null
-        _state.value = _state.value.copy(positionBeats = 0.0, isPlaying = false, countdown = null)
+        _state.value = _state.value.copy(
+            positionBeats = 0.0,
+            isPlaying = false,
+            countdown = null,
+            melodyTrail = emptyList()
+        )
         saveProgress()
     }
 
