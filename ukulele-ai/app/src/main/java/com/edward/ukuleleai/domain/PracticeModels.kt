@@ -23,9 +23,7 @@ data class MelodyPoint(
     val confidence: Float
 )
 
-enum class DifficultyLevel(val level: Int) {
-    ONE(1), TWO(2), THREE(3), FOUR(4)
-}
+enum class DifficultyLevel(val level: Int) { ONE(1), TWO(2), THREE(3), FOUR(4) }
 
 data class PracticeState(
     val song: Song,
@@ -36,6 +34,7 @@ data class PracticeState(
     val countdown: Int? = null,
     val soundEnabled: Boolean = true,
     val listeningEnabled: Boolean = false,
+    val beatPulse: Int = 0,
     val detectedNote: String? = null,
     val detectedMidi: Int? = null,
     val detectedFrequencyHz: Float? = null,
