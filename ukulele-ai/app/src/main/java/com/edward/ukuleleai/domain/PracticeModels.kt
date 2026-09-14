@@ -40,5 +40,7 @@ data class PracticeState(
     val detectedFrequencyHz: Float? = null,
     val detectedCents: Int? = null,
     val pitchConfidence: Float = 0f,
-    val melodyTrail: List<MelodyPoint> = emptyList()
+    val melodyTrail: List<MelodyPoint> = emptyList(),
+    val backingAvailable: Boolean = false,
+    val backingEnabled: Boolean = false
 )
