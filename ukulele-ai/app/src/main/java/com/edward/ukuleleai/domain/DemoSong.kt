@@ -2,18 +2,19 @@ package com.edward.ukuleleai.domain
 
 object DemoSong {
     val song = Song(
-        id = "demo-001",
-        title = "First Practice",
-        bpm = 80,
-        events = listOf(
-            ChordEvent("C", 0.0, 4.0, "↓"),
-            ChordEvent("G", 4.0, 4.0, "↓"),
-            ChordEvent("Am", 8.0, 4.0, "↓"),
-            ChordEvent("F", 12.0, 4.0, "↓"),
-            ChordEvent("C", 16.0, 4.0, "↓ ↓"),
-            ChordEvent("G", 20.0, 4.0, "↓ ↓"),
-            ChordEvent("Am", 24.0, 4.0, "↓ ↓"),
-            ChordEvent("F", 28.0, 4.0, "↓ ↓")
-        )
+        id = "hoje-eu-vou-example",
+        title = "Hoje Eu Vou",
+        bpm = 117,
+        events = buildList {
+            var beat = 0.0
+            fun bar(chord: String) { add(ChordEvent(chord, beat, 4.0, "↓")); beat += 4.0 }
+            // Simplified beginner arrangement used as the editable example project.
+            repeat(2) { listOf("C","Am","F","G").forEach(::bar) }
+            listOf("F","C","Dm","G").forEach(::bar)
+            listOf("C","G","Am","F","C","G","Am","F","C","G","F","C").forEach(::bar)
+            repeat(2) { listOf("C","Am","F","G").forEach(::bar) }
+            listOf("C","G","Am","F","C","G","Am","F","C","G","F","C").forEach(::bar)
+            listOf("C","F","C","C").forEach(::bar)
+        }
     )
 }
