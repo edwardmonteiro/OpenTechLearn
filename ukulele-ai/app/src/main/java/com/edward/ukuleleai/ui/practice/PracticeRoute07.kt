@@ -1,6 +1,7 @@
 package com.edward.ukuleleai.ui.practice
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -20,11 +21,11 @@ fun PracticeRoute07(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel
     Box(Modifier.fillMaxSize()) {
         PracticeRoute(song, onExit, viewModel)
         if (state.backingAvailable) {
+            val click = if (!state.listeningEnabled) Modifier.clickable { viewModel.toggleBacking() } else Modifier
             Box(
                 Modifier.align(Alignment.TopCenter).padding(top = 13.dp)
                     .background(if (state.backingEnabled) Color(0xFF263A32) else Color(0xFF171C19), RoundedCornerShape(15.dp))
-                    .padding(horizontal = 14.dp, vertical = 9.dp)
-                    .then(if (!state.listeningEnabled) Modifier.noRippleClick { viewModel.toggleBacking() } else Modifier)
+                    .then(click).padding(horizontal = 14.dp, vertical = 9.dp)
             ) {
                 Text(
                     when { state.listeningEnabled -> "Original audio · silent while Listen is on"; state.backingEnabled -> "● Original audio ON"; else -> "Original audio OFF" },
@@ -35,5 +36,3 @@ fun PracticeRoute07(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel
         }
     }
 }
-
-private fun Modifier.noRippleClick(onClick: () -> Unit): Modifier = androidx.compose.foundation.clickable(onClick = onClick)
