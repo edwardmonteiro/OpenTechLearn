@@ -38,9 +38,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p ukulele-ai/app/src/androidTest/assets
-          curl -fL --retry 2 -o ukulele-ai/app/src/androidTest/assets/suno-test.mp3 "https://cdn1.suno.ai/dcd3076f-3aa5-400b-ba5d-87d30f27c311.mp3" || \
-          curl -fL --retry 2 -o ukulele-ai/app/src/androidTest/assets/suno-test.mp3 "https://cdn1.suno.ai/ab39a04d-b2e6-463b-9b8e-ddea725422f5.mp3"
+          curl -fL --retry 3 --retry-delay 2 \
+            -o ukulele-ai/app/src/androidTest/assets/suno-test.mp3 \
+            "https://huggingface.co/datasets/Kukedlc/suno-ai-music-dataset/resolve/main/audio/000e9817-0d24-4142-9856-feba509af2e3.mp3?download=true"
           test -s ukulele-ai/app/src/androidTest/assets/suno-test.mp3
+          file ukulele-ai/app/src/androidTest/assets/suno-test.mp3
       - name: Run emulator test with device networking disabled
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
