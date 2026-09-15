@@ -3,8 +3,10 @@
 #include <essentia/essentia.h>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -100,7 +102,6 @@ Java_com_edward_ukuleleai_data_analysis_EssentiaNative_analyze(JNIEnv* env, jobj
         keyAlg->input("pcp").set(global); keyAlg->output("key").set(key); keyAlg->output("scale").set(scale);
         keyAlg->output("strength").set(keyStrength); keyAlg->output("firstToSecondRelativeStrength").set(firstToSecond); keyAlg->compute();
 
-        // Median-ish smoothing: require 3 consecutive frames before switching.
         std::vector<ChordFrame> merged;
         for (size_t i=0;i<raw.size();++i) {
             std::string chosen=raw[i].chord;
@@ -108,7 +109,6 @@ Java_com_edward_ukuleleai_data_analysis_EssentiaNative_analyze(JNIEnv* env, jobj
             if (merged.empty() || merged.back().chord!=chosen) merged.push_back({raw[i].startMs,raw[i].endMs,chosen,raw[i].confidence});
             else { merged.back().endMs=raw[i].endMs; merged.back().confidence=(merged.back().confidence+raw[i].confidence)*0.5f; }
         }
-        // Collapse implausibly short regions into their predecessor.
         for (size_t i=1;i<merged.size();) {
             if (merged[i].endMs-merged[i].startMs < 450) {
                 merged[i-1].endMs=merged[i].endMs; i=merged.erase(merged.begin()+i)-merged.begin();
