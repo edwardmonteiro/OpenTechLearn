@@ -1,6 +1,7 @@
 package com.edward.ukuleleai.data.song
 
 import com.edward.ukuleleai.domain.ChordEvent
+import com.edward.ukuleleai.domain.LyricEvent
 import com.edward.ukuleleai.domain.Song
 import java.util.UUID
 
@@ -13,20 +14,25 @@ object SongChartParser {
         defaultBpm: Int = 80,
         beatsPerBar: Int = 4
     ): Result<Song> = runCatching {
-        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
-        require(lines.isNotEmpty()) { "Paste at least one chart line." }
+        val allLines = raw.lines().map { it.trimEnd() }
+        val nonBlank = allLines.map { it.trim() }.filter { it.isNotBlank() }
+        require(nonBlank.isNotEmpty()) { "Paste at least one chart line." }
 
-        val title = lines
+        val title = nonBlank
             .firstOrNull { it.startsWith("Title:", ignoreCase = true) }
             ?.substringAfter(":")?.trim()?.takeIf { it.isNotBlank() }
             ?: "Imported Song"
 
-        val bpm = lines
+        val bpm = nonBlank
             .firstOrNull { it.startsWith("BPM:", ignoreCase = true) }
             ?.substringAfter(":")?.trim()?.toIntOrNull()?.coerceIn(40, 160)
             ?: defaultBpm
 
-        val chartLines = lines.filterNot {
+        val lyricHeader = allLines.indexOfFirst { it.trim().equals("[Lyrics]", ignoreCase = true) }
+        val chartSource = if (lyricHeader >= 0) allLines.take(lyricHeader) else allLines
+        val lyricSource = if (lyricHeader >= 0) allLines.drop(lyricHeader + 1) else emptyList()
+
+        val chartLines = chartSource.map { it.trim() }.filter { it.isNotBlank() }.filterNot {
             it.startsWith("Title:", ignoreCase = true) ||
                 it.startsWith("BPM:", ignoreCase = true) ||
                 it.startsWith("#")
@@ -58,6 +64,16 @@ object SongChartParser {
             }
         }
 
-        Song(id = id, title = title, bpm = bpm, beatsPerBar = beatsPerBar, events = events)
+        val lyrics = lyricSource.map { it.trim() }
+            .filter { it.isNotBlank() && !it.startsWith("#") }
+            .mapIndexedNotNull { index, line ->
+                val explicit = Regex("^@(\\d+)\\s+(.+)$").matchEntire(line)
+                val barNumber = explicit?.groupValues?.get(1)?.toIntOrNull() ?: (index + 1)
+                val text = explicit?.groupValues?.get(2)?.trim() ?: line
+                val startBeat = (barNumber - 1).coerceAtLeast(0) * beatsPerBar.toDouble()
+                if (startBeat < beat && text.isNotBlank()) LyricEvent(text, startBeat, beatsPerBar.toDouble()) else null
+            }
+
+        Song(id = id, title = title, bpm = bpm, beatsPerBar = beatsPerBar, events = events, lyrics = lyrics)
     }
 }
