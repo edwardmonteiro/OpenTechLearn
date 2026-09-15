@@ -1,6 +1,8 @@
 name: Build Ukulele AI APK
 
 on:
+  push:
+    branches: [ukulele-ai-build]
   workflow_dispatch:
 
 jobs:
