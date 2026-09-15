@@ -11,8 +11,17 @@ android {
         applicationId = "com.edward.ukuleleai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.8.0-karaoke"
+        versionCode = 9
+        versionName = "0.9.0-offline-analysis"
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildFeatures { compose = true }
