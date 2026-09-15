@@ -1,0 +1,65 @@
+name: Test Ukulele Offline Suno Flow
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ukulele-ai-build]
+
+concurrency:
+  group: ukulele-ai-offline-test
+  cancel-in-progress: true
+
+jobs:
+  offline-suno-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1" "emulator" "system-images;android-35;google_apis;x86_64"
+      - name: Fetch pinned Essentia Android libraries
+        working-directory: ukulele-ai
+        run: bash third_party/essentia/fetch_prebuilt.sh
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.1'
+      - name: Download public Suno-generated validation song
+        shell: bash
+        run: |
+          mkdir -p ukulele-ai/app/src/androidTest/assets
+          curl -fL --retry 2 -o ukulele-ai/app/src/androidTest/assets/suno-test.mp3 "https://cdn1.suno.ai/dcd3076f-3aa5-400b-ba5d-87d30f27c311.mp3" || \
+          curl -fL --retry 2 -o ukulele-ai/app/src/androidTest/assets/suno-test.mp3 "https://cdn1.suno.ai/ab39a04d-b2e6-463b-9b8e-ddea725422f5.mp3"
+          test -s ukulele-ai/app/src/androidTest/assets/suno-test.mp3
+      - name: Run emulator test with device networking disabled
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb shell settings put global airplane_mode_on 1 || true
+            cd ukulele-ai
+            gradle --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.edward.ukuleleai.OfflineSunoFlowTest
+      - name: Upload instrumentation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ukulele-offline-suno-test-report
+          path: ukulele-ai/app/build/reports/androidTests/connected/
+          if-no-files-found: ignore
+          retention-days: 7
