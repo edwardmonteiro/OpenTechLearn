@@ -9,27 +9,9 @@ data class Song(
     val lyrics: List<LyricEvent> = emptyList()
 )
 
-data class ChordEvent(
-    val chord: String,
-    val beat: Double,
-    val durationBeats: Double,
-    val strumHint: String = "↓"
-)
-
-data class LyricEvent(
-    val text: String,
-    val beat: Double,
-    val durationBeats: Double
-)
-
-data class MelodyPoint(
-    val beat: Double,
-    val note: String,
-    val midi: Int,
-    val cents: Int,
-    val confidence: Float
-)
-
+data class ChordEvent(val chord: String,val beat: Double,val durationBeats: Double,val strumHint: String = "↓")
+data class LyricEvent(val text: String,val beat: Double,val durationBeats: Double)
+data class MelodyPoint(val beat: Double,val note: String,val midi: Int,val cents: Int,val confidence: Float)
 enum class DifficultyLevel(val level: Int) { ONE(1), TWO(2), THREE(3), FOUR(4) }
 
 data class PracticeState(
@@ -49,5 +31,6 @@ data class PracticeState(
     val pitchConfidence: Float = 0f,
     val melodyTrail: List<MelodyPoint> = emptyList(),
     val backingAvailable: Boolean = false,
-    val backingEnabled: Boolean = false
+    val backingEnabled: Boolean = false,
+    val beginnerMode: Boolean = true
 )
