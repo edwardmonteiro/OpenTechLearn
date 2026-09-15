@@ -17,26 +17,30 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Prepare Android SDK
+      - name: Prepare Android SDK and NDK
         shell: bash
         run: |
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Fetch pinned Essentia Android libraries
+        working-directory: ukulele-ai
+        run: bash third_party/essentia/fetch_prebuilt.sh
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.1'
       - name: Build debug APK
         working-directory: ukulele-ai
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify APK
+      - name: Verify APK and offline manifest
         run: |
           ls -lh ukulele-ai/app/build/outputs/apk/debug/app-debug.apk
           sha256sum ukulele-ai/app/build/outputs/apk/debug/app-debug.apk
+          if grep -q 'android.permission.INTERNET' ukulele-ai/app/src/main/AndroidManifest.xml; then echo 'Unexpected INTERNET permission'; exit 1; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: ukulele-ai-studio-0.8-karaoke-debug-apk
+          name: ukulele-studio-0.9-offline-analysis-apk
           path: ukulele-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
