@@ -5,7 +5,8 @@ data class Song(
     val title: String,
     val bpm: Int,
     val beatsPerBar: Int = 4,
-    val events: List<ChordEvent>
+    val events: List<ChordEvent>,
+    val lyrics: List<LyricEvent> = emptyList()
 )
 
 data class ChordEvent(
@@ -13,6 +14,12 @@ data class ChordEvent(
     val beat: Double,
     val durationBeats: Double,
     val strumHint: String = "↓"
+)
+
+data class LyricEvent(
+    val text: String,
+    val beat: Double,
+    val durationBeats: Double
 )
 
 data class MelodyPoint(
