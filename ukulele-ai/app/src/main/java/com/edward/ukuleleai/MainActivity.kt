@@ -1,27 +1,65 @@
 package com.edward.ukuleleai
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.edward.ukuleleai.data.analysis.OfflineChordAnalyzer
 import com.edward.ukuleleai.data.song.*
 import com.edward.ukuleleai.domain.*
+import com.edward.ukuleleai.ui.analysis.ChordAnalysisEditScreen
 import com.edward.ukuleleai.ui.home.HomeScreen
 import com.edward.ukuleleai.ui.importsong.ImportSongScreen
 import com.edward.ukuleleai.ui.practice.PracticeRoute07
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val songs=LocalSongRepository(applicationContext);val progress=LocalProgressRepository(applicationContext);val audio=LocalAudioRepository(applicationContext);setContent{MaterialTheme{Surface(color=Color(0xFF0D100F)){UkuleleApp(songs,progress,audio)}}}}}
-private sealed interface AppScreen{data object Home:AppScreen;data object ImportSong:AppScreen;data class EditSong(val song:Song):AppScreen;data class Practice(val song:Song):AppScreen}
-@Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository){
- var screen by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var localSongs by remember{mutableStateOf(repository.listSongs())}
- fun attach(song:Song,uri:android.net.Uri?){if(uri!=null)audioRepository.import(song.id,uri).getOrThrow()}
- when(val current=screen){
-  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=AppScreen.EditSong(it)})
-  AppScreen.ImportSong->ImportSongScreen(onCancel={screen=AppScreen.Home},onSave={repository.saveChart(it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)})
-  is AppScreen.EditSong->ImportSongScreen(initialChart=repository.getRawChart(current.song.id),isEditing=true,onCancel={screen=AppScreen.Home},onSave={repository.updateChart(current.song.id,it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)})
-  is AppScreen.Practice->PracticeRoute07(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home})
+class MainActivity:ComponentActivity(){
+ override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState)
+  val songs=LocalSongRepository(applicationContext);val progress=LocalProgressRepository(applicationContext);val audio=LocalAudioRepository(applicationContext);val analyzer=OfflineChordAnalyzer(applicationContext)
+  setContent{MaterialTheme{Surface(color=Color(0xFF0D100F)){UkuleleApp(songs,progress,audio,analyzer)}}}
  }
+}
+
+private sealed interface AppScreen{
+ data object Home:AppScreen;data object ImportSong:AppScreen
+ data class EditSong(val song:Song):AppScreen;data class Practice(val song:Song):AppScreen
+ data class Analyze(val song:Song):AppScreen;data class EditAnalysis(val song:Song):AppScreen
+}
+
+@Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer){
+ var screen by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var localSongs by remember{mutableStateOf(repository.listSongs())}
+ fun attach(song:Song,uri:Uri?){if(uri!=null)audioRepository.import(song.id,uri).getOrThrow()}
+ when(val current=screen){
+  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)})
+  AppScreen.ImportSong->ImportSongScreen(onCancel={screen=AppScreen.Home},onSave={repository.saveChart(it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)},onAnalyzeAudio={uri,title->
+   runCatching{val song=repository.createAudioSong(title);attach(song,uri);screen=AppScreen.Analyze(song)}
+  })
+  is AppScreen.EditSong->ImportSongScreen(initialChart=repository.getRawChart(current.song.id),isEditing=true,onCancel={screen=AppScreen.Home},onSave={repository.updateChart(current.song.id,it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)})
+  is AppScreen.Analyze->AnalysisProgress(current.song,analyzer){result,error->if(result!=null){localSongs=repository.listSongs();screen=AppScreen.Practice(result)}else screen=AppScreen.Home}
+  is AppScreen.EditAnalysis->{
+   val a=analyzer.cached(current.song.id)
+   if(a==null){LaunchedEffect(current.song.id){screen=AppScreen.Home}}
+   else ChordAnalysisEditScreen(a,onBack={localSongs=repository.listSongs();screen=AppScreen.Home},onSaveChord={index,chord->analyzer.editChord(current.song.id,index,chord);localSongs=repository.listSongs();screen=AppScreen.EditAnalysis(repository.get(current.song.id)?:current.song)},onReanalyze={screen=AppScreen.Analyze(current.song)})
+  }
+  is AppScreen.Practice->PracticeRoute07(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)})
+ }
+}
+
+@Composable private fun AnalysisProgress(song:Song,analyzer:OfflineChordAnalyzer,onFinished:(Song?,String?)->Unit){
+ var message by remember{mutableStateOf("Decoding audio locally…")}
+ LaunchedEffect(song.id){
+  val result=runCatching{withContext(Dispatchers.Default){message="Running Essentia chord analysis…";analyzer.analyze(song.id,force=true).toSong(song.id,song.title,song.lyrics)}}
+  onFinished(result.getOrNull(),result.exceptionOrNull()?.message)
+ }
+ Box(Modifier.fillMaxSize().background(Color(0xFF0D100F)),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){CircularProgressIndicator(color=Color(0xFFE9F45E));Spacer(Modifier.height(18.dp));Text(message,color=Color(0xFFF7F8F4),fontSize=18.sp);Spacer(Modifier.height(6.dp));Text("No upload. No server. Processing stays on this phone.",color=Color(0xFFA7B0AA),fontSize=11.sp)}}
 }
