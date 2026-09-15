@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.edward.ukuleleai"
     compileSdk = 36
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.edward.ukuleleai"
