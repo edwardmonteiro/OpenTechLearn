@@ -5,6 +5,10 @@ on:
     branches: [ukulele-ai-build]
   workflow_dispatch:
 
+concurrency:
+  group: ukulele-ai-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
