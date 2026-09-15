@@ -11,8 +11,8 @@ android {
         applicationId = "com.edward.ukuleleai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.6.0-studio"
+        versionCode = 8
+        versionName = "0.8.0-karaoke"
     }
 
     buildFeatures { compose = true }
