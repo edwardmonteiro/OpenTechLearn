@@ -18,28 +18,23 @@ import com.edward.ukuleleai.domain.LyricEvent
 import com.edward.ukuleleai.domain.Song
 
 @Composable
-fun PracticeRoute07(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel = viewModel()) {
+fun PracticeRoute07(song: Song, onExit: () -> Unit, onEditAnalysis:()->Unit = {}, viewModel: PracticeViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     Box(Modifier.fillMaxSize()) {
         PracticeRoute(song, onExit, viewModel)
 
-        if (state.backingAvailable) {
-            val click = if (!state.listeningEnabled) Modifier.clickable { viewModel.toggleBacking() } else Modifier
-            Box(
-                Modifier.align(Alignment.TopCenter).padding(top = 13.dp)
-                    .background(if (state.backingEnabled) Color(0xFF263A32) else Color(0xFF171C19), RoundedCornerShape(15.dp))
-                    .then(click).padding(horizontal = 14.dp, vertical = 9.dp)
-            ) {
-                Text(
-                    when {
-                        state.listeningEnabled -> "Original audio · silent while Listen is on"
-                        state.backingEnabled -> "● Original audio ON"
-                        else -> "Original audio OFF"
-                    },
-                    color = if (state.backingEnabled) Color(0xFF70E0B6) else Color(0xFF858F89),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
-                )
+        Row(Modifier.align(Alignment.TopCenter).padding(top=13.dp),horizontalArrangement=Arrangement.spacedBy(7.dp)) {
+            if (state.backingAvailable) {
+                val click = if (!state.listeningEnabled) Modifier.clickable { viewModel.toggleBacking() } else Modifier
+                Box(Modifier.background(if(state.backingEnabled)Color(0xFF263A32)else Color(0xFF171C19),RoundedCornerShape(15.dp)).then(click).padding(horizontal=12.dp,vertical=9.dp)){
+                    Text(when{state.listeningEnabled->"Audio silent while Listen is on";state.backingEnabled->"● Original audio ON";else->"Original audio OFF"},color=if(state.backingEnabled)Color(0xFF70E0B6)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
+                }
+            }
+            Box(Modifier.background(if(state.beginnerMode)Color(0xFF31371A)else Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable{viewModel.toggleBeginner()}.padding(horizontal=12.dp,vertical=9.dp)){
+                Text(if(state.beginnerMode)"Beginner triads" else "Full chords",color=if(state.beginnerMode)Color(0xFFE9F45E)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
+            }
+            Box(Modifier.background(Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable(onClick=onEditAnalysis).padding(horizontal=12.dp,vertical=9.dp)){
+                Text("Edit analysis",color=Color(0xFFF6F7F3),fontSize=10.sp,fontWeight=FontWeight.Medium)
             }
         }
 
@@ -47,7 +42,7 @@ fun PracticeRoute07(song: Song, onExit: () -> Unit, viewModel: PracticeViewModel
             KaraokePanel(
                 lyrics = state.song.lyrics,
                 beat = state.positionBeats,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 42.dp, end = 42.dp, bottom = 82.dp)
+                modifier = Modifier.align(Alignment.TopStart).padding(start=24.dp,top=78.dp).widthIn(max=390.dp)
             )
         }
     }
@@ -60,29 +55,12 @@ private fun KaraokePanel(lyrics: List<LyricEvent>, beat: Double, modifier: Modif
     val next = lyrics.getOrNull((currentIndex + 1).coerceAtLeast(0))
     val active = current?.takeIf { beat < it.beat + it.durationBeats }
     val line = active ?: next ?: current
-    val upcoming = when {
-        active != null -> lyrics.getOrNull(currentIndex + 1)
-        next != null -> lyrics.getOrNull(currentIndex + 2)
-        else -> null
-    }
+    val upcoming = when { active != null -> lyrics.getOrNull(currentIndex + 1); next != null -> lyrics.getOrNull(currentIndex + 2); else -> null }
 
-    Column(
-        modifier.background(Color(0xE6101412), RoundedCornerShape(22.dp)).padding(horizontal = 26.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("KARAOKE", color = Color(0xFF858F89), fontSize = 9.sp, letterSpacing = 2.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            line?.text ?: "♪",
-            color = Color(0xFFF6F7F3),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            maxLines = 2
-        )
-        upcoming?.let {
-            Spacer(Modifier.height(3.dp))
-            Text(it.text, color = Color(0xFF858F89), fontSize = 13.sp, textAlign = TextAlign.Center, maxLines = 1)
-        }
+    Column(modifier.background(Color(0xD9101412),RoundedCornerShape(18.dp)).padding(horizontal=18.dp,vertical=12.dp),horizontalAlignment=Alignment.Start) {
+        Text("LYRICS",color=Color(0xFF858F89),fontSize=8.sp,letterSpacing=2.sp)
+        Spacer(Modifier.height(3.dp))
+        Text(line?.text ?: "♪",color=Color(0xFFF6F7F3),fontSize=20.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Start,maxLines=2)
+        upcoming?.let { Spacer(Modifier.height(3.dp));Text(it.text,color=Color(0xFF858F89),fontSize=12.sp,textAlign=TextAlign.Start,maxLines=1) }
     }
 }
