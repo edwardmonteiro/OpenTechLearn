@@ -25,26 +25,66 @@ fun PracticeRoute07(song: Song, onExit: () -> Unit, onEditAnalysis:()->Unit = {}
     Box(Modifier.fillMaxSize()) {
         PracticeRoute(song, onExit, viewModel)
 
-        Row(Modifier.align(Alignment.TopCenter).padding(top=13.dp),horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically) {
-            Box(Modifier.background(Color(0xFF171C19),RoundedCornerShape(15.dp)).padding(horizontal=12.dp,vertical=9.dp)) {
-                Text("NOW  ${displayChordAtBeat(state.song,state.positionBeats,false) ?: "—"}",modifier=Modifier.testTag("current-chord"),color=Color(0xFFE9F45E),fontSize=10.sp,fontWeight=FontWeight.Bold)
-            }
-            if (state.backingAvailable) {
-                val click = if (!state.listeningEnabled) Modifier.clickable { viewModel.toggleBacking() } else Modifier
-                Box(Modifier.background(if(state.backingEnabled)Color(0xFF263A32)else Color(0xFF171C19),RoundedCornerShape(15.dp)).then(click).padding(horizontal=12.dp,vertical=9.dp)){
-                    Text(when{state.listeningEnabled->"Audio silent while Listen is on";state.backingEnabled->"● Original audio ON";else->"Original audio OFF"},color=if(state.backingEnabled)Color(0xFF70E0B6)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
+        Column(
+            Modifier.align(Alignment.TopCenter).padding(top=10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically) {
+                Box(Modifier.background(Color(0xFF171C19),RoundedCornerShape(15.dp)).padding(horizontal=12.dp,vertical=9.dp)) {
+                    Text(
+                        "NOW  ${displayChordAtBeat(state.song,state.positionBeats,state.beginnerMode) ?: "—"}",
+                        modifier=Modifier.testTag("current-chord"),
+                        color=Color(0xFFE9F45E),fontSize=11.sp,fontWeight=FontWeight.Bold
+                    )
+                }
+                if (state.analysisAvailable) {
+                    Box(Modifier.background(Color(0xFF14221C),RoundedCornerShape(15.dp)).padding(horizontal=12.dp,vertical=9.dp)) {
+                        Text(
+                            "OFFLINE ANALYZED · ${state.analysisKey ?: "?"} ${state.analysisScale ?: ""} · ${state.analysisSegments} segments",
+                            modifier=Modifier.testTag("analysis-status"),
+                            color=Color(0xFF70E0B6),fontSize=9.sp,fontWeight=FontWeight.Bold
+                        )
+                    }
+                }
+                if (state.backingAvailable) {
+                    val click = if (!state.listeningEnabled) Modifier.clickable { viewModel.toggleBacking() } else Modifier
+                    Box(Modifier.background(if(state.backingEnabled)Color(0xFF263A32)else Color(0xFF171C19),RoundedCornerShape(15.dp)).then(click).padding(horizontal=12.dp,vertical=9.dp)){
+                        Text(when{state.listeningEnabled->"Audio silent while Listen is on";state.backingEnabled->"● Original audio ON";else->"Original audio OFF"},color=if(state.backingEnabled)Color(0xFF70E0B6)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
+                    }
+                }
+                Box(Modifier.background(if(state.beginnerMode)Color(0xFF31371A)else Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable{viewModel.toggleBeginner()}.padding(horizontal=12.dp,vertical=9.dp)){
+                    Text(if(state.beginnerMode)"Beginner triads" else "Full chords",color=if(state.beginnerMode)Color(0xFFE9F45E)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
+                }
+                if (state.analysisAvailable) {
+                    Box(Modifier.background(Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable(onClick=onEditAnalysis).padding(horizontal=12.dp,vertical=9.dp)){
+                        Text("Edit analysis",color=Color(0xFFF6F7F3),fontSize=10.sp,fontWeight=FontWeight.Medium)
+                    }
                 }
             }
-            Box(Modifier.background(if(state.beginnerMode)Color(0xFF31371A)else Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable{viewModel.toggleBeginner()}.padding(horizontal=12.dp,vertical=9.dp)){
-                Text(if(state.beginnerMode)"Beginner triads" else "Full chords",color=if(state.beginnerMode)Color(0xFFE9F45E)else Color(0xFF858F89),fontSize=10.sp,fontWeight=FontWeight.Medium)
-            }
-            Box(Modifier.background(Color(0xFF171C19),RoundedCornerShape(15.dp)).clickable(onClick=onEditAnalysis).padding(horizontal=12.dp,vertical=9.dp)){
-                Text("Edit analysis",color=Color(0xFFF6F7F3),fontSize=10.sp,fontWeight=FontWeight.Medium)
+
+            if (state.analysisAvailable && state.song.events.isNotEmpty()) {
+                val currentIndex = state.song.events.indexOfLast { state.positionBeats >= it.beat }.coerceAtLeast(0)
+                val upcoming = state.song.events.drop(currentIndex).take(5).map { it.chord }.distinct()
+                if (upcoming.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        Modifier.testTag("detected-chord-strip")
+                            .background(Color(0xD9101412),RoundedCornerShape(14.dp))
+                            .padding(horizontal=12.dp,vertical=6.dp),
+                        horizontalArrangement=Arrangement.spacedBy(12.dp),
+                        verticalAlignment=Alignment.CenterVertically
+                    ) {
+                        Text("DETECTED",color=Color(0xFF858F89),fontSize=8.sp,letterSpacing=1.5.sp)
+                        upcoming.forEachIndexed { index, chord ->
+                            Text(chord,color=if(index==0)Color(0xFFE9F45E) else Color(0xFFF6F7F3),fontSize=12.sp,fontWeight=if(index==0)FontWeight.Bold else FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
 
         if (state.song.lyrics.isNotEmpty()) {
-            KaraokePanel(lyrics=state.song.lyrics,beat=state.positionBeats,modifier=Modifier.align(Alignment.TopStart).padding(start=24.dp,top=78.dp).widthIn(max=390.dp))
+            KaraokePanel(lyrics=state.song.lyrics,beat=state.positionBeats,modifier=Modifier.align(Alignment.TopStart).padding(start=24.dp,top=108.dp).widthIn(max=390.dp))
         }
     }
 }
