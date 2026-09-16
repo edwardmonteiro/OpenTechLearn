@@ -34,6 +34,7 @@ private sealed interface AppScreen{
  data object Home:AppScreen;data object ImportSong:AppScreen
  data class EditSong(val song:Song):AppScreen;data class Practice(val song:Song):AppScreen
  data class Analyze(val song:Song):AppScreen;data class EditAnalysis(val song:Song):AppScreen
+ data class AnalysisError(val song:Song,val message:String):AppScreen
 }
 
 @Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer){
@@ -43,9 +44,11 @@ private sealed interface AppScreen{
   AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)})
   AppScreen.ImportSong->ImportSongScreen(onCancel={screen=AppScreen.Home},onSave={repository.saveChart(it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)},onAnalyzeAudio={uri,title->
    runCatching{val song=repository.createAudioSong(title);attach(song,uri);screen=AppScreen.Analyze(song)}
+    .onFailure{screen=AppScreen.AnalysisError(Song("import-error",title.ifBlank{"Imported MP3"},80,4,listOf(ChordEvent("C",0.0,4.0))),it.message?:"Could not import audio.")}
   })
   is AppScreen.EditSong->ImportSongScreen(initialChart=repository.getRawChart(current.song.id),isEditing=true,onCancel={screen=AppScreen.Home},onSave={repository.updateChart(current.song.id,it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)})
-  is AppScreen.Analyze->AnalysisProgress(current.song,analyzer){result,error->if(result!=null){localSongs=repository.listSongs();screen=AppScreen.Practice(result)}else screen=AppScreen.Home}
+  is AppScreen.Analyze->AnalysisProgress(current.song,analyzer){result,error->if(result!=null){localSongs=repository.listSongs();screen=AppScreen.Practice(result)}else screen=AppScreen.AnalysisError(current.song,error?:"Offline analysis failed.")}
+  is AppScreen.AnalysisError->AnalysisErrorScreen(current.song,current.message,onRetry={screen=AppScreen.Analyze(current.song)},onBack={localSongs=repository.listSongs();screen=AppScreen.Home})
   is AppScreen.EditAnalysis->{
    val a=analyzer.cached(current.song.id)
    if(a==null){LaunchedEffect(current.song.id){screen=AppScreen.Home}}
@@ -62,4 +65,21 @@ private sealed interface AppScreen{
   onFinished(result.getOrNull(),result.exceptionOrNull()?.message)
  }
  Box(Modifier.fillMaxSize().background(Color(0xFF0D100F)),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){CircularProgressIndicator(color=Color(0xFFE9F45E));Spacer(Modifier.height(18.dp));Text(message,color=Color(0xFFF7F8F4),fontSize=18.sp);Spacer(Modifier.height(6.dp));Text("No upload. No server. Processing stays on this phone.",color=Color(0xFFA7B0AA),fontSize=11.sp)}}
+}
+
+@Composable private fun AnalysisErrorScreen(song:Song,message:String,onRetry:()->Unit,onBack:()->Unit){
+ Box(Modifier.fillMaxSize().background(Color(0xFF0D100F)).padding(24.dp),contentAlignment=Alignment.Center){
+  Column(horizontalAlignment=Alignment.CenterHorizontally){
+   Text("OFFLINE ANALYSIS FAILED",color=Color(0xFFFF9C9C),fontSize=12.sp)
+   Spacer(Modifier.height(10.dp))
+   Text(song.title,color=Color(0xFFF7F8F4),fontSize=22.sp)
+   Spacer(Modifier.height(12.dp))
+   Text(message,color=Color(0xFFA7B0AA),fontSize=13.sp)
+   Spacer(Modifier.height(18.dp))
+   Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
+    Button(onClick=onRetry){Text("REANALYZE")}
+    Button(onClick=onBack,colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF242A27))){Text("BACK")}
+   }
+  }
+ }
 }
