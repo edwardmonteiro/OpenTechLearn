@@ -32,5 +32,9 @@ data class PracticeState(
     val melodyTrail: List<MelodyPoint> = emptyList(),
     val backingAvailable: Boolean = false,
     val backingEnabled: Boolean = false,
-    val beginnerMode: Boolean = true
+    val beginnerMode: Boolean = true,
+    val analysisAvailable: Boolean = false,
+    val analysisKey: String? = null,
+    val analysisScale: String? = null,
+    val analysisSegments: Int = 0
 )
