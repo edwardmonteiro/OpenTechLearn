@@ -48,22 +48,29 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         playbackJob?.cancel()
         stopListening()
         loadedSongId = song.id
-        originalSong = song
+
+        val cachedAnalysis = analysisRepository.load(song.id)
+        val effectiveSong = cachedAnalysis?.toSong(song.id, song.title, song.lyrics) ?: song
+        originalSong = effectiveSong
         backingFile = audioRepository.find(song.id)
         val saved = progressRepository.load(song.id)
         completedRuns = saved?.completedRuns ?: 0
         val difficulty = DifficultyLevel.entries.firstOrNull { it.level == saved?.difficultyLevel } ?: DifficultyLevel.ONE
-        val endBeat = song.events.maxOf { it.beat + it.durationBeats }
-        val analyzed = analysisRepository.load(song.id) != null
+        val endBeat = effectiveSong.events.maxOf { it.beat + it.durationBeats }
+        val analyzed = cachedAnalysis != null
         val beginner = analyzed
         _state.value = PracticeState(
-            song = if (beginner) simplifiedSong(song) else song,
+            song = if (beginner) simplifiedSong(effectiveSong) else effectiveSong,
             difficulty = difficulty,
-            bpm = if (analyzed) song.bpm else saved?.bpm?.coerceIn(40, 160) ?: song.bpm,
+            bpm = if (analyzed) effectiveSong.bpm else saved?.bpm?.coerceIn(40, 160) ?: effectiveSong.bpm,
             positionBeats = saved?.positionBeats?.coerceIn(0.0, endBeat) ?: 0.0,
             backingAvailable = backingFile != null,
             backingEnabled = analyzed && backingFile != null,
-            beginnerMode = beginner
+            beginnerMode = beginner,
+            analysisAvailable = analyzed,
+            analysisKey = cachedAnalysis?.key,
+            analysisScale = cachedAnalysis?.scale,
+            analysisSegments = cachedAnalysis?.chords?.size ?: 0
         )
     }
 
@@ -170,7 +177,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                     saveProgress(); break
                 }
                 val integerBeat = floor(beat).toInt()
-                if (integerBeat > lastMetronomeBeat) { lastMetronomeBeat = integerBeat; pulseBeat(integerBeat % _state.value.song.beatsPerBar == 0) }
+                if (integerBeat > lastMetronomeBeat) { lastMetronomeBeat=integerBeat; pulseBeat(integerBeat % _state.value.song.beatsPerBar == 0) }
                 _state.value = _state.value.copy(positionBeats = beat)
                 delay(16)
             }
