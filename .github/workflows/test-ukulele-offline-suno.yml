@@ -55,8 +55,7 @@ jobs:
             adb shell svc wifi disable || true
             adb shell svc data disable || true
             adb shell settings put global airplane_mode_on 1 || true
-            cd ukulele-ai
-            gradle --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.edward.ukuleleai.OfflineSunoFlowTest
+            gradle -p ukulele-ai --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.edward.ukuleleai.OfflineSunoFlowTest
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@v4
