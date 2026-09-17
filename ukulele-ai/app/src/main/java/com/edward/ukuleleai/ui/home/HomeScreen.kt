@@ -23,13 +23,13 @@ import com.edward.ukuleleai.domain.Song
 private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private val Glass2=Color(0xFF171C19);private val White=Color(0xFFF6F7F3);private val Fog=Color(0xFF858F89);private val Acid=Color(0xFFDDF45A);private val Mint=Color(0xFF70E0B6);private val Line=Color(0xFF262D29)
 
 @Composable fun HomeScreen(songs:List<Song>,demoSong:Song,progressPercent:(Song)->Int,onAddSong:()->Unit,onPlaySong:(Song)->Unit,onEditSong:(Song)->Unit){
- Box(Modifier.fillMaxSize().background(Night)){Column(Modifier.fillMaxSize().padding(horizontal=30.dp,vertical=24.dp)){
+ Box(Modifier.fillMaxSize().background(Night)){Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal=30.dp,vertical=18.dp)){
   Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){Column{Text("Ukulele",color=White,fontSize=36.sp,fontWeight=FontWeight.ExtraLight);Text("Import a Suno MP3. Learn it offline.",color=Fog,fontSize=13.sp)};Button(onClick=onAddSong,shape=CircleShape,colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night),contentPadding=PaddingValues(horizontal=21.dp,vertical=11.dp)){Text("＋ Import / Add",fontSize=11.sp,fontWeight=FontWeight.Bold)}}
-  Spacer(Modifier.height(30.dp));Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
+  Spacer(Modifier.height(24.dp));Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
   LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){item{SongCard(demoSong,"DEMO",progressPercent(demoSong),{onPlaySong(demoSong)})};items(songs,key={it.id}){song->SongCard(song,"ON DEVICE",progressPercent(song),{onPlaySong(song)},{onEditSong(song)})}}
-  Spacer(Modifier.height(22.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
-   Column(Modifier.weight(1f)){Text("OFFLINE ANALYSIS",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("MP3 in. Chords out.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Essentia analyzes locally. BPM, key and timestamped chords are cached on your phone.",color=Fog,fontSize=12.sp)}
-   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.9",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Essentia · NDK",color=Fog,fontSize=10.sp);Text("No server / API",color=Fog,fontSize=10.sp);Text("No Internet permission",color=Fog,fontSize=10.sp)}
+  Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
+   Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, beat count and beginner strumming stay synchronized to your imported song.",color=Fog,fontSize=12.sp)}
+   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.10",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
   }
  }}
 }
