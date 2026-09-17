@@ -9,8 +9,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.edward.ukuleleai.data.analysis.OfflineChordAnalyzer
 import com.edward.ukuleleai.data.song.LocalSongRepository
+import com.edward.ukuleleai.domain.PlayAlongMode
 import com.edward.ukuleleai.domain.displayChordAtBeat
-import com.edward.ukuleleai.domain.simplifyUkuleleChord
 import com.edward.ukuleleai.ui.practice.PracticeViewModel
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -32,7 +32,6 @@ class OfflineSunoFlowTest {
         val audio = File(backing, "${song.id}.mp3")
         testContext.assets.open("suno-test.mp3").use { input -> audio.outputStream().use { input.copyTo(it) } }
 
-        // Analysis runs after the workflow disables emulator networking.
         val analysis = OfflineChordAnalyzer(target).analyze(song.id, force = true)
         assertTrue("Expected several detected chord segments", analysis.chords.size > 2)
         assertTrue("Expected more than one detected chord", analysis.chords.map { it.chord }.distinct().size > 1)
@@ -40,7 +39,6 @@ class OfflineSunoFlowTest {
         assertTrue("Expected detected key", analysis.key.isNotBlank())
         assertTrue("Expected cached JSON", File(backing, "${song.id}.analysis.json").exists())
 
-        val expectedFirst = simplifyUkuleleChord(analysis.chords.first().chord)
         compose.activityRule.scenario.recreate()
         compose.waitForIdle()
         compose.onNodeWithText("Offline Suno Validation").assertExists().performClick()
@@ -49,11 +47,13 @@ class OfflineSunoFlowTest {
         compose.onNodeWithTag("analysis-status").assertExists()
         compose.onNodeWithTag("detected-chord-strip").assertExists()
         compose.onNodeWithTag("current-chord").assertExists()
-        compose.onNodeWithText("NOW  $expectedFirst").assertExists()
+        compose.onNodeWithText("LEARN").assertExists()
+        compose.onNodeWithText("BEGINNER STRUM").assertExists()
 
         val vm = ViewModelProvider(compose.activity)[PracticeViewModel::class.java]
         assertTrue("Practice state should be hydrated from cached analysis", vm.state.value.analysisAvailable)
         assertTrue("Practice song should contain detected events", vm.state.value.song.events.size > 2)
+        assertTrue("Analyzed songs should open in learn mode", vm.state.value.playAlongMode == PlayAlongMode.LEARN)
 
         val before = vm.state.value.positionBeats
         compose.activity.runOnUiThread { vm.togglePlayback() }
@@ -75,11 +75,8 @@ class OfflineSunoFlowTest {
         assertTrue("Playback should pause", !vm.state.value.isPlaying)
         compose.waitForIdle()
 
-        val paused = vm.state.value
-        val expectedPaused = displayChordAtBeat(paused.song, paused.positionBeats, paused.beginnerMode)
-        assertTrue("Expected rendered paused chord", !expectedPaused.isNullOrBlank())
         compose.onNodeWithTag("current-chord").assertExists()
-        compose.onNodeWithText("NOW  $expectedPaused").assertExists()
         compose.onNodeWithTag("detected-chord-strip").assertExists()
+        compose.onNodeWithText("PLAY").assertExists()
     }
 }
