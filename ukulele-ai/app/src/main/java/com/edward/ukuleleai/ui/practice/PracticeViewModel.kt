@@ -70,13 +70,17 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             analysisAvailable = analyzed,
             analysisKey = cachedAnalysis?.key,
             analysisScale = cachedAnalysis?.scale,
-            analysisSegments = cachedAnalysis?.chords?.size ?: 0
+            analysisSegments = cachedAnalysis?.chords?.size ?: 0,
+            playAlongMode = if (analyzed) PlayAlongMode.LEARN else PlayAlongMode.PLAY,
+            barHapticsEnabled = true
         )
     }
 
     fun exit(onExit: () -> Unit) { pause(true); stopListening(); releaseBacking(); onExit() }
     fun togglePlayback() { if (_state.value.isPlaying || _state.value.countdown != null) pause(true) else startWithCountIn() }
     fun toggleSound() { if (!_state.value.listeningEnabled) _state.value = _state.value.copy(soundEnabled = !_state.value.soundEnabled) }
+    fun setPlayAlongMode(mode: PlayAlongMode) { _state.value = _state.value.copy(playAlongMode = mode) }
+    fun toggleBarHaptics() { _state.value = _state.value.copy(barHapticsEnabled = !_state.value.barHapticsEnabled) }
 
     fun toggleBeginner() {
         val next = !_state.value.beginnerMode
@@ -177,7 +181,10 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                     saveProgress(); break
                 }
                 val integerBeat = floor(beat).toInt()
-                if (integerBeat > lastMetronomeBeat) { lastMetronomeBeat=integerBeat; pulseBeat(integerBeat % _state.value.song.beatsPerBar == 0) }
+                if (integerBeat > lastMetronomeBeat) {
+                    lastMetronomeBeat = integerBeat
+                    pulseBeat(integerBeat % _state.value.song.beatsPerBar == 0)
+                }
                 _state.value = _state.value.copy(positionBeats = beat)
                 delay(16)
             }
