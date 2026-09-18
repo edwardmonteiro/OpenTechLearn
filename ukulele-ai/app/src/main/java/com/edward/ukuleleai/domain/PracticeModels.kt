@@ -14,6 +14,7 @@ data class LyricEvent(val text: String,val beat: Double,val durationBeats: Doubl
 data class MelodyPoint(val beat: Double,val note: String,val midi: Int,val cents: Int,val confidence: Float)
 enum class DifficultyLevel(val level: Int) { ONE(1), TWO(2), THREE(3), FOUR(4) }
 enum class PlayAlongMode { LISTEN, LEARN, PLAY }
+enum class RhythmPattern { BASIC, GROOVE }
 
 data class PracticeState(
     val song: Song,
@@ -39,5 +40,6 @@ data class PracticeState(
     val analysisScale: String? = null,
     val analysisSegments: Int = 0,
     val playAlongMode: PlayAlongMode = PlayAlongMode.LEARN,
-    val barHapticsEnabled: Boolean = true
+    val barHapticsEnabled: Boolean = true,
+    val rhythmPattern: RhythmPattern = RhythmPattern.BASIC
 )
