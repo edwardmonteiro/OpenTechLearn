@@ -48,7 +48,7 @@ class OfflineSunoFlowTest {
         compose.onNodeWithTag("detected-chord-strip").assertExists()
         compose.onNodeWithTag("current-chord").assertExists()
         compose.onNodeWithText("LEARN").assertExists()
-        compose.onNodeWithText("BEGINNER STRUM").assertExists()
+        compose.onNodeWithTag("next-chord").assertExists()\n        compose.onNodeWithTag("rhythm-coach").assertExists()\n        compose.onNodeWithText("BASIC").assertExists()
 
         val vm = ViewModelProvider(compose.activity)[PracticeViewModel::class.java]
         assertTrue("Practice state should be hydrated from cached analysis", vm.state.value.analysisAvailable)
