@@ -13,8 +13,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,12 +31,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edward.ukuleleai.domain.*
-import kotlin.math.ceil
 import kotlin.math.floor
 
-private val Night=Color(0xFF070908); private val Glass=Color(0xFF101412); private val Glass2=Color(0xFF171C19)
-private val Line=Color(0xFF262D29); private val White=Color(0xFFF6F7F3); private val Fog=Color(0xFF858F89)
-private val Acid=Color(0xFFDDF45A); private val Mint=Color(0xFF70E0B6)
+private val Night=Color(0xFF070908)
+private val Glass=Color(0xFF101412)
+private val Glass2=Color(0xFF171C19)
+private val Line=Color(0xFF262D29)
+private val White=Color(0xFFF6F7F3)
+private val Fog=Color(0xFF858F89)
+private val Acid=Color(0xFFDDF45A)
+private val Mint=Color(0xFF70E0B6)
 
 @Composable
 fun PracticeRoute(
@@ -45,7 +51,10 @@ fun PracticeRoute(
 ) {
     val s by viewModel.state.collectAsState()
     val ctx = LocalContext.current
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { if (it) viewModel.startListening() }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        if (it) viewModel.startListening()
+    }
+
     LaunchedEffect(song.id) { viewModel.loadSong(song) }
     LaunchedEffect(s.beatPulse) {
         if (s.beatPulse > 0 && s.barHapticsEnabled) {
@@ -53,49 +62,48 @@ fun PracticeRoute(
             vibrateBeat(ctx, beat % s.song.beatsPerBar == 0)
         }
     }
+
     val listen = {
         if (s.listeningEnabled) viewModel.stopListening()
         else if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) viewModel.startListening()
         else ask.launch(Manifest.permission.RECORD_AUDIO)
     }
-    PlayAlongScreen(
+
+    PracticeHud(
         s=s,
-        exit={viewModel.exit(onExit)},
+        exit={ viewModel.exit(onExit) },
         play=viewModel::togglePlayback,
         restart=viewModel::restart,
-        setMode=viewModel::setPlayAlongMode,
         setRhythm=viewModel::setRhythmPattern,
         toggleBeginner=viewModel::toggleBeginner,
         toggleBacking=viewModel::toggleBacking,
         toggleHaptics=viewModel::toggleBarHaptics,
         listen=listen,
-        editAnalysis=onEditAnalysis,
-        tempo=viewModel::changeTempo
+        editAnalysis=onEditAnalysis
     )
 }
 
 @Composable
-private fun PlayAlongScreen(
+private fun PracticeHud(
     s: PracticeState,
     exit:()->Unit,
     play:()->Unit,
     restart:()->Unit,
-    setMode:(PlayAlongMode)->Unit,
     setRhythm:(RhythmPattern)->Unit,
     toggleBeginner:()->Unit,
     toggleBacking:()->Unit,
     toggleHaptics:()->Unit,
     listen:()->Unit,
-    editAnalysis:()->Unit,
-    tempo:(Int)->Unit
+    editAnalysis:()->Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+
     val currentIndex = s.song.events.indexOfLast { s.positionBeats >= it.beat }.coerceAtLeast(0)
     val current = s.song.events.getOrNull(currentIndex)
     val next = s.song.events.drop(currentIndex + 1).firstOrNull { it.chord != current?.chord }
     val beatsUntilNext = next?.let { (it.beat - s.positionBeats).coerceAtLeast(0.0) }
     val secondsUntilNext = beatsUntilNext?.times(60.0 / s.bpm)
-    val beatInBar = (floor(s.positionBeats).toInt().mod(s.song.beatsPerBar)) + 1
+    val beatInBar = floor(s.positionBeats).toInt().mod(s.song.beatsPerBar) + 1
 
     Column(
         Modifier.fillMaxSize()
@@ -103,198 +111,411 @@ private fun PlayAlongScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal=14.dp, vertical=8.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).background(Glass2,CircleShape).clickable(onClick=exit),contentAlignment=Alignment.Center){Text("‹",color=White,fontSize=26.sp)}
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(s.song.title,color=White,fontSize=19.sp,fontWeight=FontWeight.Medium,maxLines=1)
-                    Text("${s.bpm} BPM${if(s.analysisAvailable) "  ·  ${s.analysisKey ?: "?"} ${s.analysisScale ?: ""}" else ""}",color=Fog,fontSize=10.sp)
-                }
-            }
-            Box {
-                Text("⋯",modifier=Modifier.size(42.dp).background(Glass2,CircleShape).clickable{menuOpen=true}.wrapContentSize(Alignment.Center),color=White,fontSize=25.sp,textAlign=TextAlign.Center)
-                DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    DropdownMenuItem(text={Text(if(s.beginnerMode)"Use full chords" else "Use beginner triads")},onClick={toggleBeginner();menuOpen=false})
-                    if(s.backingAvailable) DropdownMenuItem(text={Text(if(s.backingEnabled)"Mute original audio" else "Play original audio")},onClick={toggleBacking();menuOpen=false})
-                    DropdownMenuItem(text={Text(if(s.barHapticsEnabled)"Turn beat haptics off" else "Turn beat haptics on")},onClick={toggleHaptics();menuOpen=false})
-                    DropdownMenuItem(text={Text(if(s.listeningEnabled)"Stop microphone listen" else "Microphone listen")},onClick={listen();menuOpen=false})
-                    DropdownMenuItem(text={Text("Restart song")},onClick={restart();menuOpen=false})
-                    if(!s.backingEnabled){DropdownMenuItem(text={Text("Tempo −5")},onClick={tempo(-5);menuOpen=false});DropdownMenuItem(text={Text("Tempo +5")},onClick={tempo(5);menuOpen=false})}
-                    if(s.analysisAvailable) DropdownMenuItem(text={Text("Edit chord analysis")},onClick={editAnalysis();menuOpen=false})
-                }
-            }
-        }
+        CompactHeader(
+            title=s.song.title,
+            bpm=s.bpm,
+            key=s.analysisKey,
+            analyzed=s.analysisAvailable,
+            audioOn=s.backingEnabled,
+            exit=exit,
+            menuOpen=menuOpen,
+            setMenuOpen={ menuOpen=it },
+            beginner=s.beginnerMode,
+            toggleBeginner=toggleBeginner,
+            backingAvailable=s.backingAvailable,
+            toggleBacking=toggleBacking,
+            haptics=s.barHapticsEnabled,
+            toggleHaptics=toggleHaptics,
+            listening=s.listeningEnabled,
+            listen=listen,
+            editAnalysis=editAnalysis
+        )
 
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth().background(Glass,RoundedCornerShape(18.dp)).padding(4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-            PlayAlongMode.entries.forEach { mode ->
-                val selected=s.playAlongMode==mode
-                Box(Modifier.weight(1f).background(if(selected) Acid else Color.Transparent,RoundedCornerShape(14.dp)).clickable{setMode(mode)}.padding(vertical=9.dp),contentAlignment=Alignment.Center){Text(mode.name,color=if(selected)Night else Fog,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)}
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        if(s.analysisAvailable) {
-            Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically) {
-                Text("OFFLINE ANALYZED · ${s.analysisSegments} segments",modifier=Modifier.testTag("analysis-status"),color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
-                if(s.backingEnabled) Text("● Original audio ON",color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
+        Spacer(Modifier.height(8.dp))
 
         Column(
-            Modifier.fillMaxWidth().weight(1f)
-                .background(Glass,RoundedCornerShape(30.dp))
-                .border(1.dp,Line,RoundedCornerShape(30.dp))
-                .padding(horizontal=20.dp,vertical=18.dp),
-            horizontalAlignment=Alignment.CenterHorizontally
+            Modifier.weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement=Arrangement.spacedBy(8.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                ChordCard(
-                    modifier=Modifier.weight(1.15f).testTag("current-chord"),
-                    label="PLAY NOW",
-                    chord=current?.chord ?: "—",
-                    accent=true
-                )
-                ChordCard(
-                    modifier=Modifier.weight(.85f).testTag("next-chord"),
-                    label=if(secondsUntilNext != null && secondsUntilNext <= 4.0) "GET READY" else "NEXT",
-                    chord=next?.chord ?: "—",
-                    accent=false,
-                    footer=secondsUntilNext?.let { "${String.format("%.1f",it)}s" }
+            CurrentNextPanel(
+                current=current?.chord ?: "—",
+                next=next?.chord ?: "—",
+                beatsUntilNext=beatsUntilNext,
+                secondsUntilNext=secondsUntilNext
+            )
+
+            RhythmCoach(
+                s=s,
+                beatInBar=beatInBar,
+                setRhythm=setRhythm
+            )
+
+            UpcomingChords(s)
+
+            if (s.analysisAvailable) {
+                Text(
+                    "OFFLINE ANALYZED · ${s.analysisSegments} segments",
+                    modifier=Modifier.testTag("analysis-status"),
+                    color=Mint,
+                    fontSize=8.sp,
+                    fontWeight=FontWeight.Bold
                 )
             }
+        }
 
-            Spacer(Modifier.height(10.dp))
-            if(next != null && beatsUntilNext != null) {
-                val progress=(1.0-(beatsUntilNext/8.0)).coerceIn(0.0,1.0).toFloat()
-                LinearProgressIndicator(
-                    progress={progress},
-                    modifier=Modifier.fillMaxWidth().height(5.dp),
-                    color=if(beatsUntilNext<=4.0) Acid else Mint,
-                    trackColor=Glass2
+        Spacer(Modifier.height(8.dp))
+        BottomControls(
+            isPlaying=s.isPlaying || s.countdown!=null,
+            play=play,
+            restart=restart
+        )
+    }
+
+    s.countdown?.let { count ->
+        Box(
+            Modifier.fillMaxSize().background(Color(0xE0070908)),
+            contentAlignment=Alignment.Center
+        ) {
+            Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                Text(count.toString(), color=White, fontSize=92.sp, fontWeight=FontWeight.ExtraLight)
+                Text("COUNT IN · PLAY ON 1", color=Fog, fontSize=10.sp, letterSpacing=1.5.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactHeader(
+    title:String,
+    bpm:Int,
+    key:String?,
+    analyzed:Boolean,
+    audioOn:Boolean,
+    exit:()->Unit,
+    menuOpen:Boolean,
+    setMenuOpen:(Boolean)->Unit,
+    beginner:Boolean,
+    toggleBeginner:()->Unit,
+    backingAvailable:Boolean,
+    toggleBacking:()->Unit,
+    haptics:Boolean,
+    toggleHaptics:()->Unit,
+    listening:Boolean,
+    listen:()->Unit,
+    editAnalysis:()->Unit
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+        Box(
+            Modifier.size(38.dp).background(Glass2,CircleShape).clickable(onClick=exit),
+            contentAlignment=Alignment.Center
+        ) { Text("‹", color=White, fontSize=24.sp) }
+
+        Spacer(Modifier.width(10.dp))
+
+        Column(Modifier.weight(1f)) {
+            Text(title,color=White,fontSize=16.sp,fontWeight=FontWeight.Medium,maxLines=1)
+            Text(
+                "$bpm BPM${if(analyzed) " · ${key ?: "?"}" else ""}${if(audioOn) " · AUDIO ON" else ""}",
+                color=Fog,
+                fontSize=9.sp,
+                maxLines=1
+            )
+        }
+
+        Box {
+            Box(
+                Modifier.size(38.dp).background(Glass2,CircleShape).clickable{setMenuOpen(true)},
+                contentAlignment=Alignment.Center
+            ) { Text("⋯",color=White,fontSize=23.sp) }
+
+            DropdownMenu(expanded=menuOpen,onDismissRequest={setMenuOpen(false)}) {
+                DropdownMenuItem(
+                    text={Text(if(beginner)"Use full chords" else "Use beginner triads")},
+                    onClick={toggleBeginner();setMenuOpen(false)}
                 )
-                Spacer(Modifier.height(4.dp))
+                if(backingAvailable) DropdownMenuItem(
+                    text={Text(if(audioOn)"Mute original audio" else "Play original audio")},
+                    onClick={toggleBacking();setMenuOpen(false)}
+                )
+                DropdownMenuItem(
+                    text={Text(if(haptics)"Turn beat haptics off" else "Turn beat haptics on")},
+                    onClick={toggleHaptics();setMenuOpen(false)}
+                )
+                DropdownMenuItem(
+                    text={Text(if(listening)"Stop microphone listen" else "Microphone listen")},
+                    onClick={listen();setMenuOpen(false)}
+                )
+                if(analyzed) DropdownMenuItem(
+                    text={Text("Edit chord analysis")},
+                    onClick={editAnalysis();setMenuOpen(false)}
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CurrentNextPanel(
+    current:String,
+    next:String,
+    beatsUntilNext:Double?,
+    secondsUntilNext:Double?
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(Glass,RoundedCornerShape(24.dp))
+            .border(1.dp,Line,RoundedCornerShape(24.dp))
+            .padding(12.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            FixedChordCard(
+                modifier=Modifier.weight(1f).testTag("current-chord"),
+                label="CURRENT",
+                chord=current,
+                accent=true
+            )
+            FixedChordCard(
+                modifier=Modifier.weight(1f).testTag("next-chord"),
+                label=if((beatsUntilNext ?: 99.0)<=4.0)"GET READY" else "NEXT",
+                chord=next,
+                accent=false
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if(beatsUntilNext != null) {
+            val progress=(1.0-(beatsUntilNext/8.0)).coerceIn(0.0,1.0).toFloat()
+            LinearProgressIndicator(
+                progress={progress},
+                modifier=Modifier.fillMaxWidth().height(6.dp),
+                color=if(beatsUntilNext<=4.0) Acid else Mint,
+                trackColor=Glass2
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                when {
+                    beatsUntilNext <= .35 -> "CHANGE NOW → $next"
+                    beatsUntilNext <= 1.0 -> "NEXT BEAT → $next"
+                    beatsUntilNext <= 4.0 -> "Prepare $next · ${String.format("%.1f",beatsUntilNext)} beats"
+                    else -> "$next in ${String.format("%.1f",beatsUntilNext)} beats · ${String.format("%.1f",secondsUntilNext ?: 0.0)}s"
+                },
+                color=if(beatsUntilNext<=4.0)White else Fog,
+                fontSize=12.sp,
+                fontWeight=if(beatsUntilNext<=1.0)FontWeight.Bold else FontWeight.Medium,
+                maxLines=1
+            )
+        }
+    }
+}
+
+@Composable
+private fun FixedChordCard(
+    modifier:Modifier,
+    label:String,
+    chord:String,
+    accent:Boolean
+) {
+    val fontSize=when {
+        chord.length<=2 -> 48.sp
+        chord.length<=4 -> 40.sp
+        chord.length<=6 -> 32.sp
+        else -> 26.sp
+    }
+
+    Column(
+        modifier.height(106.dp)
+            .background(if(accent)Color(0xFF1B221B)else Glass2,RoundedCornerShape(18.dp))
+            .border(1.dp,if(accent)Acid.copy(alpha=.5f)else Line,RoundedCornerShape(18.dp))
+            .padding(horizontal=6.dp,vertical=8.dp),
+        horizontalAlignment=Alignment.CenterHorizontally,
+        verticalArrangement=Arrangement.Center
+    ) {
+        Text(label,color=if(accent)Acid else Fog,fontSize=8.sp,letterSpacing=1.3.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            chord,
+            color=if(accent)Acid else White,
+            fontSize=fontSize,
+            fontWeight=FontWeight.Medium,
+            maxLines=1,
+            softWrap=false,
+            textAlign=TextAlign.Center,
+            modifier=Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun RhythmCoach(
+    s:PracticeState,
+    beatInBar:Int,
+    setRhythm:(RhythmPattern)->Unit
+) {
+    val eighth=(s.positionBeats*2.0).toInt().mod(8)
+    val pattern=when(s.rhythmPattern) {
+        RhythmPattern.BASIC -> listOf("↓","·","↓","·","↓","·","↓","·")
+        RhythmPattern.GROOVE -> listOf("↓","·","↓","↑","·","↑","↓","↑")
+    }
+
+    Column(
+        Modifier.fillMaxWidth()
+            .testTag("rhythm-coach")
+            .background(Glass,RoundedCornerShape(22.dp))
+            .border(1.dp,Line,RoundedCornerShape(22.dp))
+            .padding(12.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("RHYTHM COACH",color=Acid,fontSize=9.sp,letterSpacing=1.4.sp,fontWeight=FontWeight.Bold)
                 Text(
-                    when {
-                        beatsUntilNext <= .35 -> "CHANGE NOW → ${next.chord}"
-                        beatsUntilNext <= 1.0 -> "CHANGE ON THE NEXT BEAT → ${next.chord}"
-                        beatsUntilNext <= 4.0 -> "Prepare ${next.chord} · ${String.format("%.1f",beatsUntilNext)} beats"
-                        else -> "${next.chord} coming in ${String.format("%.1f",beatsUntilNext)} beats"
-                    },
-                    color=if(beatsUntilNext<=4.0) White else Fog,
+                    if(s.rhythmPattern==RhythmPattern.BASIC)"Strum DOWN on 1 · 2 · 3 · 4"
+                    else "Suggested groove · ↓  ↓↑  ↑↓↑",
+                    color=White,
                     fontSize=11.sp,
-                    fontWeight=if(beatsUntilNext<=1.0) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight=FontWeight.Medium,
                     maxLines=1
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
-            RhythmCoach(s, beatInBar, setRhythm)
-
-            Spacer(Modifier.height(12.dp))
-            ChordTimeline(s)
-
-            if(s.playAlongMode==PlayAlongMode.LEARN && next!=null) {
-                Spacer(Modifier.height(14.dp))
-                Box(Modifier.fillMaxWidth().background(Color(0xFF141A17),RoundedCornerShape(14.dp)).padding(horizontal=12.dp,vertical=8.dp),contentAlignment=Alignment.Center){
-                    Text("Keep ${current?.chord ?: "—"} · prepare ${next.chord}",color=White,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-        Button(
-            onClick=play,
-            modifier=Modifier.fillMaxWidth().height(56.dp),
-            shape=RoundedCornerShape(20.dp),
-            colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night)
-        ) {
-            Text(if(s.isPlaying||s.countdown!=null)"PAUSE" else "PLAY",fontSize=13.sp,fontWeight=FontWeight.Bold,letterSpacing=1.4.sp)
-        }
-        Spacer(Modifier.height(4.dp))
-    }
-
-    s.countdown?.let { count ->
-        Box(Modifier.fillMaxSize().background(Color(0xD9070908)),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally){Text(count.toString(),color=White,fontSize=96.sp,fontWeight=FontWeight.ExtraLight);Text("COUNT IN",color=Fog,fontSize=10.sp,letterSpacing=2.sp)}}
-    }
-}
-
-@Composable
-private fun ChordCard(modifier:Modifier,label:String,chord:String,accent:Boolean,footer:String?=null) {
-    val size = when {
-        chord.length <= 2 -> 56.sp
-        chord.length <= 4 -> 46.sp
-        chord.length <= 6 -> 37.sp
-        else -> 30.sp
-    }
-    Column(
-        modifier.background(if(accent)Color(0xFF1B221B)else Glass2,RoundedCornerShape(20.dp))
-            .border(1.dp,if(accent)Acid.copy(alpha=.45f)else Line,RoundedCornerShape(20.dp))
-            .padding(horizontal=8.dp,vertical=10.dp),
-        horizontalAlignment=Alignment.CenterHorizontally
-    ) {
-        Text(label,color=if(accent)Acid else Fog,fontSize=8.sp,letterSpacing=1.5.sp,fontWeight=FontWeight.Bold,maxLines=1)
-        Text(chord,color=if(accent)Acid else White,fontSize=size,fontWeight=FontWeight.Light,maxLines=1,softWrap=false,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
-        footer?.let{Text(it,color=Fog,fontSize=10.sp,fontWeight=FontWeight.Bold,maxLines=1)}
-    }
-}
-
-@Composable
-private fun RhythmCoach(s:PracticeState,beatInBar:Int,setRhythm:(RhythmPattern)->Unit) {
-    val eighth=((s.positionBeats*2.0).toInt().mod(8))
-    val pattern=when(s.rhythmPattern){
-        RhythmPattern.BASIC -> listOf("↓","·","↓","·","↓","·","↓","·")
-        RhythmPattern.GROOVE -> listOf("↓","·","↓","↑","·","↑","↓","↑")
-    }
-    Column(Modifier.fillMaxWidth().testTag("rhythm-coach")) {
-        Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("RHYTHM COACH",color=Fog,fontSize=8.sp,letterSpacing=1.5.sp,fontWeight=FontWeight.Bold)
-                Text(if(s.rhythmPattern==RhythmPattern.BASIC)"1 downstroke per beat" else "Suggested groove · D D U U D U",color=White,fontSize=11.sp,fontWeight=FontWeight.Medium,maxLines=1)
-            }
             Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                 RhythmPattern.entries.forEach { p ->
-                    val on=s.rhythmPattern==p
-                    Box(Modifier.background(if(on)Acid else Glass2,RoundedCornerShape(10.dp)).clickable{setRhythm(p)}.padding(horizontal=8.dp,vertical=6.dp)){
-                        Text(p.name,color=if(on)Night else Fog,fontSize=8.sp,fontWeight=FontWeight.Bold)
+                    val selected=s.rhythmPattern==p
+                    Box(
+                        Modifier.background(if(selected)Acid else Glass2,RoundedCornerShape(9.dp))
+                            .clickable{setRhythm(p)}
+                            .padding(horizontal=7.dp,vertical=5.dp)
+                    ) {
+                        Text(p.name,color=if(selected)Night else Fog,fontSize=7.sp,fontWeight=FontWeight.Bold)
                     }
                 }
             }
         }
-        Spacer(Modifier.height(7.dp))
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(3.dp)) {
             pattern.forEachIndexed { index, stroke ->
                 val active=s.isPlaying && index==eighth
-                val isBeat=index%2==0
+                val beatLabel=if(index%2==0)(index/2+1).toString() else "&"
+
                 Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text(if(isBeat)(index/2+1).toString() else "&",color=Fog,fontSize=8.sp)
-                    Box(Modifier.fillMaxWidth().height(38.dp).background(if(active)Acid else Glass2,RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){
-                        Text(stroke,color=if(active)Night else if(stroke=="·")Fog else White,fontSize=20.sp,fontWeight=FontWeight.Bold)
+                    Text(beatLabel,color=if(active)Acid else Fog,fontSize=8.sp,fontWeight=FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
+                    Box(
+                        Modifier.fillMaxWidth().height(42.dp)
+                            .background(if(active)Acid else Glass2,RoundedCornerShape(10.dp)),
+                        contentAlignment=Alignment.Center
+                    ) {
+                        Text(
+                            stroke,
+                            color=if(active)Night else if(stroke=="·")Fog else White,
+                            fontSize=21.sp,
+                            fontWeight=FontWeight.Bold
+                        )
                     }
                 }
             }
         }
-        Spacer(Modifier.height(5.dp))
-        Text("Beat $beatInBar of ${s.song.beatsPerBar} · highlighted box = move your hand now",color=Fog,fontSize=9.sp)
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Beat $beatInBar/${s.song.beatsPerBar} · yellow = move your hand now",
+            color=Fog,
+            fontSize=9.sp,
+            maxLines=1
+        )
     }
 }
 
 @Composable
-private fun ChordTimeline(s: PracticeState) {
+private fun UpcomingChords(s:PracticeState) {
     val index=s.song.events.indexOfLast{s.positionBeats>=it.beat}.coerceAtLeast(0)
-    val events=s.song.events.drop(index).take(5)
-    Row(Modifier.fillMaxWidth().testTag("detected-chord-strip"),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalAlignment=Alignment.CenterVertically) {
-        events.forEachIndexed { i,e ->
-            val active=i==0
-            val chordSize=if(e.chord.length<=4)15.sp else 12.sp
-            Column(Modifier.weight(1f).background(if(active)Color(0xFF202822)else Glass2,RoundedCornerShape(12.dp)).padding(horizontal=3.dp,vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally){
-                Text(e.chord,color=if(active)Acid else White,fontSize=chordSize,fontWeight=FontWeight.Bold,maxLines=1,softWrap=false)
-                Text(if(active)"NOW" else "${String.format("%.1f",(e.beat-s.positionBeats).coerceAtLeast(0.0))}b",color=Fog,fontSize=7.sp,maxLines=1)
+    val events=s.song.events.drop(index).take(4)
+
+    Column(
+        Modifier.fillMaxWidth()
+            .testTag("detected-chord-strip")
+            .background(Glass,RoundedCornerShape(18.dp))
+            .padding(10.dp)
+    ) {
+        Text("UPCOMING",color=Fog,fontSize=8.sp,letterSpacing=1.2.sp,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+            events.forEachIndexed { i,e ->
+                Column(
+                    Modifier.weight(1f)
+                        .background(if(i==0)Color(0xFF202822)else Glass2,RoundedCornerShape(11.dp))
+                        .padding(vertical=8.dp,horizontal=3.dp),
+                    horizontalAlignment=Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        e.chord,
+                        color=if(i==0)Acid else White,
+                        fontSize=if(e.chord.length<=4)15.sp else 12.sp,
+                        fontWeight=FontWeight.Bold,
+                        maxLines=1,
+                        softWrap=false
+                    )
+                    Text(
+                        if(i==0)"NOW" else "${String.format("%.1f",(e.beat-s.positionBeats).coerceAtLeast(0.0))} beats",
+                        color=Fog,
+                        fontSize=7.sp,
+                        maxLines=1
+                    )
+                }
             }
         }
     }
 }
 
-private fun vibrateBeat(c:Context,accent:Boolean){try{val v=if(Build.VERSION.SDK_INT>=31)(c.getSystemService(Context.VIBRATOR_MANAGER_SERVICE)as VibratorManager).defaultVibrator else @Suppress("DEPRECATION")(c.getSystemService(Context.VIBRATOR_SERVICE)as Vibrator);val duration=if(accent)32L else 14L;val amplitude=if(accent)180 else 80;if(Build.VERSION.SDK_INT>=26)v.vibrate(VibrationEffect.createOneShot(duration,amplitude))else @Suppress("DEPRECATION")v.vibrate(duration)}catch(_:Throwable){}}
+@Composable
+private fun BottomControls(
+    isPlaying:Boolean,
+    play:()->Unit,
+    restart:()->Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().height(64.dp),
+        horizontalArrangement=Arrangement.Center,
+        verticalAlignment=Alignment.CenterVertically
+    ) {
+        OutlinedButton(
+            onClick=restart,
+            modifier=Modifier.size(48.dp),
+            shape=CircleShape,
+            contentPadding=PaddingValues(0.dp),
+            border=ButtonDefaults.outlinedButtonBorder,
+            colors=ButtonDefaults.outlinedButtonColors(contentColor=White)
+        ) { Text("↺",fontSize=20.sp) }
+
+        Spacer(Modifier.width(18.dp))
+
+        Button(
+            onClick=play,
+            modifier=Modifier.size(60.dp).testTag("play-button"),
+            shape=CircleShape,
+            contentPadding=PaddingValues(0.dp),
+            colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night)
+        ) {
+            Text(if(isPlaying)"Ⅱ" else "▶",fontSize=20.sp,fontWeight=FontWeight.Bold)
+        }
+    }
+}
+
+private fun vibrateBeat(c:Context,accent:Boolean) {
+    try {
+        val v=if(Build.VERSION.SDK_INT>=31)
+            (c.getSystemService(Context.VIBRATOR_MANAGER_SERVICE)as VibratorManager).defaultVibrator
+        else @Suppress("DEPRECATION")
+            (c.getSystemService(Context.VIBRATOR_SERVICE)as Vibrator)
+
+        val duration=if(accent)32L else 14L
+        val amplitude=if(accent)180 else 80
+
+        if(Build.VERSION.SDK_INT>=26) v.vibrate(VibrationEffect.createOneShot(duration,amplitude))
+        else @Suppress("DEPRECATION") v.vibrate(duration)
+    } catch(_:Throwable) {}
+}
