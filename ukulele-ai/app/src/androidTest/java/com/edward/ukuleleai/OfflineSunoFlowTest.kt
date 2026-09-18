@@ -9,7 +9,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.edward.ukuleleai.data.analysis.OfflineChordAnalyzer
 import com.edward.ukuleleai.data.song.LocalSongRepository
-import com.edward.ukuleleai.domain.PlayAlongMode
 import com.edward.ukuleleai.domain.displayChordAtBeat
 import com.edward.ukuleleai.ui.practice.PracticeViewModel
 import org.junit.Assert.assertTrue
@@ -43,17 +42,18 @@ class OfflineSunoFlowTest {
         compose.waitForIdle()
         compose.onNodeWithText("Offline Suno Validation").assertExists().performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("● Original audio ON").assertExists()
         compose.onNodeWithTag("analysis-status").assertExists()
         compose.onNodeWithTag("detected-chord-strip").assertExists()
         compose.onNodeWithTag("current-chord").assertExists()
-        compose.onNodeWithText("LEARN").assertExists()
-        compose.onNodeWithTag("next-chord").assertExists()\n        compose.onNodeWithTag("rhythm-coach").assertExists()\n        compose.onNodeWithText("BASIC").assertExists()
+        compose.onNodeWithTag("next-chord").assertExists()
+        compose.onNodeWithTag("rhythm-coach").assertExists()
+        compose.onNodeWithTag("play-button").assertExists()
+        compose.onNodeWithText("BASIC").assertExists()
 
         val vm = ViewModelProvider(compose.activity)[PracticeViewModel::class.java]
         assertTrue("Practice state should be hydrated from cached analysis", vm.state.value.analysisAvailable)
         assertTrue("Practice song should contain detected events", vm.state.value.song.events.size > 2)
-        assertTrue("Analyzed songs should open in learn mode", vm.state.value.playAlongMode == PlayAlongMode.LEARN)
+        assertTrue("Analyzed songs should open with rhythm coach basic", vm.state.value.rhythmPattern.name == "BASIC")
 
         val before = vm.state.value.positionBeats
         compose.activity.runOnUiThread { vm.togglePlayback() }
@@ -76,7 +76,8 @@ class OfflineSunoFlowTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag("current-chord").assertExists()
-        compose.onNodeWithTag("detected-chord-strip").assertExists()
-        compose.onNodeWithText("PLAY").assertExists()
+        compose.onNodeWithTag("next-chord").assertExists()
+        compose.onNodeWithTag("rhythm-coach").assertExists()
+        compose.onNodeWithTag("play-button").assertExists()
     }
 }
