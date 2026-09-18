@@ -72,7 +72,8 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             analysisScale = cachedAnalysis?.scale,
             analysisSegments = cachedAnalysis?.chords?.size ?: 0,
             playAlongMode = if (analyzed) PlayAlongMode.LEARN else PlayAlongMode.PLAY,
-            barHapticsEnabled = true
+            barHapticsEnabled = true,
+            rhythmPattern = RhythmPattern.BASIC
         )
     }
 
@@ -81,6 +82,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun toggleSound() { if (!_state.value.listeningEnabled) _state.value = _state.value.copy(soundEnabled = !_state.value.soundEnabled) }
     fun setPlayAlongMode(mode: PlayAlongMode) { _state.value = _state.value.copy(playAlongMode = mode) }
     fun toggleBarHaptics() { _state.value = _state.value.copy(barHapticsEnabled = !_state.value.barHapticsEnabled) }
+    fun setRhythmPattern(pattern: RhythmPattern) { _state.value = _state.value.copy(rhythmPattern = pattern) }
 
     fun toggleBeginner() {
         val next = !_state.value.beginnerMode
@@ -157,7 +159,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
             val beatDurationMs = (60_000.0 / _state.value.bpm).toLong()
-            for (count in 3 downTo 1) { _state.value = _state.value.copy(countdown=count); pulseBeat(count==1); delay(beatDurationMs) }
+            for (count in 4 downTo 1) { _state.value = _state.value.copy(countdown=count); pulseBeat(count==1); delay(beatDurationMs) }
             startedAtBeat = _state.value.positionBeats
             startedAtNanos = SystemClock.elapsedRealtimeNanos()
             lastMetronomeBeat = floor(startedAtBeat).toInt() - 1
