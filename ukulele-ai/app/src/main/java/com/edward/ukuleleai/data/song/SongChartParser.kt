@@ -38,29 +38,46 @@ object SongChartParser {
                 it.startsWith("#")
         }
 
-        val bars = chartLines.flatMap { line ->
-            line.split('|').map { it.trim() }.filter { it.isNotBlank() }
-        }
-        require(bars.isNotEmpty()) {
-            "Use bars separated by |. Example: | C | G | Am | F |"
+        val explicitEvents = chartLines.mapNotNull { line ->
+            val m = Regex("^@event\\s+([0-9.]+)\\s+([0-9.]+)\\s+([^\\s]+)$").matchEntire(line)
+            m?.let {
+                val eventBeat = it.groupValues[1].toDouble()
+                val duration = it.groupValues[2].toDouble()
+                val chord = it.groupValues[3]
+                require(chordRegex.matches(chord)) { "Unsupported chord '$chord'." }
+                ChordEvent(chord, eventBeat, duration)
+            }
         }
 
         val events = mutableListOf<ChordEvent>()
         var beat = 0.0
-        bars.forEachIndexed { barIndex, bar ->
-            val chords = bar.split(Regex("\\s+"))
-                .map { it.trim().removeSuffix(",") }
-                .filter { it.isNotBlank() }
-            require(chords.isNotEmpty()) { "Bar ${barIndex + 1} has no chord." }
-            chords.forEach { chord ->
-                require(chordRegex.matches(chord)) {
-                    "Unsupported chord '$chord' in bar ${barIndex + 1}."
-                }
+
+        if (explicitEvents.isNotEmpty()) {
+            events += explicitEvents.sortedBy { it.beat }
+            beat = events.maxOf { it.beat + it.durationBeats }
+        } else {
+            val bars = chartLines.flatMap { line ->
+                line.split('|').map { it.trim() }.filter { it.isNotBlank() }
             }
-            val duration = beatsPerBar.toDouble() / chords.size
-            chords.forEach { chord ->
-                events += ChordEvent(chord = chord, beat = beat, durationBeats = duration)
-                beat += duration
+            require(bars.isNotEmpty()) {
+                "Use bars separated by |. Example: | C | G | Am | F |"
+            }
+
+            bars.forEachIndexed { barIndex, bar ->
+                val chords = bar.split(Regex("\\s+"))
+                    .map { it.trim().removeSuffix(",") }
+                    .filter { it.isNotBlank() }
+                require(chords.isNotEmpty()) { "Bar ${barIndex + 1} has no chord." }
+                chords.forEach { chord ->
+                    require(chordRegex.matches(chord)) {
+                        "Unsupported chord '$chord' in bar ${barIndex + 1}."
+                    }
+                }
+                val duration = beatsPerBar.toDouble() / chords.size
+                chords.forEach { chord ->
+                    events += ChordEvent(chord = chord, beat = beat, durationBeats = duration)
+                    beat += duration
+                }
             }
         }
 
