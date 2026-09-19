@@ -38,6 +38,18 @@ class LocalSongRepository(context: Context) {
 
     fun updateChart(songId: String, raw: String): Result<Song> = saveChart(raw = raw, id = songId)
 
+    fun saveSong(song: Song): Song {
+        val raw = buildString {
+            appendLine("Title: ${song.title}")
+            appendLine("BPM: ${song.bpm}")
+            song.events.forEach { event ->
+                appendLine("@event ${event.beat} ${event.durationBeats} ${event.chord}")
+            }
+        }
+        File(songsDir, "${song.id}.$EXTENSION").writeText(raw)
+        return song
+    }
+
     private fun saveChart(raw: String, id: String): Result<Song> {
         return SongChartParser.parse(raw = raw, id = id).mapCatching { song ->
             File(songsDir, "$id.$EXTENSION").writeText(raw.trim() + "\n")
