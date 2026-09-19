@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edward.ukuleleai.data.analysis.OfflineChordAnalyzer
+import com.edward.ukuleleai.data.midi.MidiSongImporter
 import com.edward.ukuleleai.data.song.*
 import com.edward.ukuleleai.domain.*
 import com.edward.ukuleleai.ui.analysis.ChordAnalysisEditScreen
@@ -25,8 +26,8 @@ import kotlinx.coroutines.withContext
 
 class MainActivity:ComponentActivity(){
  override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState)
-  val songs=LocalSongRepository(applicationContext);val progress=LocalProgressRepository(applicationContext);val audio=LocalAudioRepository(applicationContext);val analyzer=OfflineChordAnalyzer(applicationContext)
-  setContent{MaterialTheme{Surface(color=Color(0xFF0D100F)){UkuleleApp(songs,progress,audio,analyzer)}}}
+  val songs=LocalSongRepository(applicationContext);val progress=LocalProgressRepository(applicationContext);val audio=LocalAudioRepository(applicationContext);val analyzer=OfflineChordAnalyzer(applicationContext);val midi=MidiSongImporter(applicationContext,songs)
+  setContent{MaterialTheme{Surface(color=Color(0xFF0D100F)){UkuleleApp(songs,progress,audio,analyzer,midi)}}}
  }
 }
 
@@ -37,15 +38,25 @@ private sealed interface AppScreen{
  data class AnalysisError(val song:Song,val message:String):AppScreen
 }
 
-@Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer){
+@Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer,midiImporter:MidiSongImporter){
  var screen by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var localSongs by remember{mutableStateOf(repository.listSongs())}
  fun attach(song:Song,uri:Uri?){if(uri!=null)audioRepository.import(song.id,uri).getOrThrow()}
  when(val current=screen){
   AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)})
-  AppScreen.ImportSong->ImportSongScreen(onCancel={screen=AppScreen.Home},onSave={repository.saveChart(it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)},onAnalyzeAudio={uri,title->
-   runCatching{val song=repository.createAudioSong(title);attach(song,uri);screen=AppScreen.Analyze(song)}
-    .onFailure{screen=AppScreen.AnalysisError(Song("import-error",title.ifBlank{"Imported MP3"},80,4,listOf(ChordEvent("C",0.0,4.0))),it.message?:"Could not import audio.")}
-  })
+  AppScreen.ImportSong->ImportSongScreen(
+   onCancel={screen=AppScreen.Home},
+   onSave={repository.saveChart(it)},
+   onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)},
+   onAnalyzeAudio={uri,title->
+    runCatching{val song=repository.createAudioSong(title);attach(song,uri);screen=AppScreen.Analyze(song)}
+     .onFailure{screen=AppScreen.AnalysisError(Song("import-error",title.ifBlank{"Imported MP3"},80,4,listOf(ChordEvent("C",0.0,4.0))),it.message?:"Could not import audio.")}
+   },
+   onImportMidi={uri,title->
+    runCatching{midiImporter.import(uri,title)}
+     .onSuccess{song->localSongs=repository.listSongs();screen=AppScreen.Practice(song)}
+     .onFailure{screen=AppScreen.AnalysisError(Song("midi-import-error",title.ifBlank{"Imported MIDI"},120,4,listOf(ChordEvent("C",0.0,4.0))),it.message?:"Could not import MIDI.")}
+   }
+  )
   is AppScreen.EditSong->ImportSongScreen(initialChart=repository.getRawChart(current.song.id),isEditing=true,onCancel={screen=AppScreen.Home},onSave={repository.updateChart(current.song.id,it)},onSavedAndPlay={song,uri->runCatching{attach(song,uri)};localSongs=repository.listSongs();screen=AppScreen.Practice(song)})
   is AppScreen.Analyze->AnalysisProgress(current.song,analyzer){result,error->if(result!=null){localSongs=repository.listSongs();screen=AppScreen.Practice(result)}else screen=AppScreen.AnalysisError(current.song,error?:"Offline analysis failed.")}
   is AppScreen.AnalysisError->AnalysisErrorScreen(current.song,current.message,onRetry={screen=AppScreen.Analyze(current.song)},onBack={localSongs=repository.listSongs();screen=AppScreen.Home})
