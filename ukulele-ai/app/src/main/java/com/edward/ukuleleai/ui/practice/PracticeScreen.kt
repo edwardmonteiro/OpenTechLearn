@@ -85,11 +85,16 @@ private fun PracticeHud(
     val secondsUntilNext=beatsUntilNext?.times(60.0/s.bpm)
     val beatInBar=floor(s.positionBeats).toInt().mod(s.song.beatsPerBar)+1
 
-    Column(
-        Modifier.fillMaxSize().background(Night)
+    Box(
+        Modifier.fillMaxSize()
+            .background(Night)
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal=10.dp,vertical=5.dp)
     ){
+        Column(
+            Modifier.fillMaxSize()
+                .padding(horizontal=10.dp,vertical=5.dp)
+                .padding(bottom=52.dp)
+        ){
         CompactHeader(
             title=s.song.title,bpm=s.bpm,key=s.analysisKey,audioOn=s.backingEnabled,
             exit=exit,menuOpen=menuOpen,setMenuOpen={menuOpen=it},
@@ -106,7 +111,14 @@ private fun PracticeHud(
         Spacer(Modifier.height(4.dp))
         UpcomingStrip(s)
         Spacer(Modifier.weight(1f))
-        BottomControls(s.isPlaying||s.countdown!=null,play,restart)
+        }
+
+        BottomControls(
+            isPlaying=s.isPlaying||s.countdown!=null,
+            play=play,
+            restart=restart,
+            modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=2.dp)
+        )
     }
 
     s.countdown?.let{count->
@@ -348,14 +360,42 @@ private fun UpcomingStrip(s:PracticeState){
 }
 
 @Composable
-private fun BottomControls(isPlaying:Boolean,play:()->Unit,restart:()->Unit){
-    Row(Modifier.fillMaxWidth().height(44.dp),horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically){
-        OutlinedButton(onClick=restart,modifier=Modifier.size(34.dp),shape=CircleShape,contentPadding=PaddingValues(0.dp),colors=ButtonDefaults.outlinedButtonColors(contentColor=White)){
+private fun BottomControls(
+    isPlaying:Boolean,
+    play:()->Unit,
+    restart:()->Unit,
+    modifier:Modifier=Modifier
+){
+    Row(
+        modifier.height(48.dp)
+            .background(Night.copy(alpha=.94f),RoundedCornerShape(24.dp))
+            .padding(horizontal=6.dp),
+        horizontalArrangement=Arrangement.Center,
+        verticalAlignment=Alignment.CenterVertically
+    ){
+        OutlinedButton(
+            onClick=restart,
+            modifier=Modifier.size(34.dp),
+            shape=CircleShape,
+            contentPadding=PaddingValues(0.dp),
+            colors=ButtonDefaults.outlinedButtonColors(contentColor=White)
+        ){
             Text("↺",fontSize=15.sp)
         }
-        Spacer(Modifier.width(12.dp))
-        Button(onClick=play,modifier=Modifier.size(44.dp).testTag("play-button"),shape=CircleShape,contentPadding=PaddingValues(0.dp),colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night)){
-            Text(if(isPlaying)"Ⅱ" else "▶",fontSize=14.sp,fontWeight=FontWeight.Bold)
+        Spacer(Modifier.width(8.dp))
+        Button(
+            onClick=play,
+            modifier=Modifier.width(88.dp).height(40.dp).testTag("play-button"),
+            shape=RoundedCornerShape(20.dp),
+            contentPadding=PaddingValues(horizontal=10.dp,vertical=0.dp),
+            colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night)
+        ){
+            Text(
+                if(isPlaying)"Ⅱ  PAUSE" else "▶  PLAY",
+                fontSize=11.sp,
+                fontWeight=FontWeight.ExtraBold,
+                letterSpacing=.5.sp
+            )
         }
     }
 }
