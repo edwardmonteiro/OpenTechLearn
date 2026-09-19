@@ -26,11 +26,11 @@ BPM: 117
 @1 Hoje eu vou
 @2 aprender ukulele"""
 
-@Composable fun ImportSongScreen(initialChart:String?=null,isEditing:Boolean=false,onCancel:()->Unit,onSave:(String)->Result<Song>,onSavedAndPlay:(Song,Uri?)->Unit,onAnalyzeAudio:((Uri,String)->Unit)?=null){
+@Composable fun ImportSongScreen(initialChart:String?=null,isEditing:Boolean=false,onCancel:()->Unit,onSave:(String)->Result<Song>,onSavedAndPlay:(Song,Uri?)->Unit,onAnalyzeAudio:((Uri,String)->Unit)?=null,onImportMidi:((Uri,String)->Unit)?=null){
  var chart by remember(initialChart){mutableStateOf(initialChart?:exampleChart)}
  var error by remember{mutableStateOf<String?>(null)}
  var audio by remember{mutableStateOf<Uri?>(null)}
- var title by remember{mutableStateOf("Imported Suno Song")}
+ var title by remember{mutableStateOf("Imported Song")}
  var launchingAnalysis by remember{mutableStateOf(false)}
  val pick=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
   if(uri!=null){
@@ -42,11 +42,18 @@ BPM: 117
    }
   }
  }
+ val pickMidi=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
+  if(uri!=null && !isEditing && onImportMidi!=null){
+   launchingAnalysis=true
+   error=null
+   onImportMidi(uri,title)
+  }
+ }
  Column(Modifier.fillMaxSize().background(Background).padding(22.dp)){
   Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){
    Column{
     Text(if(isEditing)"Edit track" else "Add track",color=Primary,fontSize=27.sp,fontWeight=FontWeight.Bold)
-    Text(if(isEditing)"Edit your chart." else "Choose a Suno MP3. Chord analysis starts automatically and stays fully offline.",color=Secondary,fontSize=12.sp)
+    Text(if(isEditing)"Edit your chart." else "Import MP3 or MIDI. Everything stays offline.",color=Secondary,fontSize=12.sp)
    }
    Button(onClick=onCancel,colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF242A27),contentColor=Primary)){Text("Cancel")}
   }
@@ -55,19 +62,29 @@ BPM: 117
    OutlinedTextField(value=title,onValueChange={title=it},modifier=Modifier.fillMaxWidth(),label={Text("Song title")},colors=OutlinedTextFieldDefaults.colors(focusedTextColor=Primary,unfocusedTextColor=Primary,focusedBorderColor=Accent,unfocusedBorderColor=Color(0xFF3F4743),focusedLabelColor=Accent,unfocusedLabelColor=Secondary))
    Spacer(Modifier.height(8.dp))
   }
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically){
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
    Button(
     onClick={pick.launch(arrayOf("audio/mpeg","audio/mp4","audio/aac","audio/wav","audio/*"))},
     enabled=!launchingAnalysis,
+    modifier=Modifier.weight(1f),
     colors=ButtonDefaults.buttonColors(containerColor=Accent,contentColor=Background)
    ){
-    Text(if(launchingAnalysis)"STARTING ANALYSIS…" else if(audio==null)"＋ IMPORT MP3 & ANALYZE" else "✓ MP3 IMPORTED",fontWeight=FontWeight.Bold)
+    Text(if(launchingAnalysis)"WORKING…" else "MP3 / AUDIO",fontWeight=FontWeight.Bold,fontSize=11.sp)
    }
-   Text(if(audio==null)"No upload · no server" else "Essentia analysis started locally",color=Secondary,fontSize=11.sp)
+   Button(
+    onClick={pickMidi.launch(arrayOf("audio/midi","audio/x-midi","application/x-midi","application/octet-stream"))},
+    enabled=!launchingAnalysis && onImportMidi!=null,
+    modifier=Modifier.weight(1f),
+    colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF70E0B6),contentColor=Background)
+   ){
+    Text("MIDI .MID",fontWeight=FontWeight.Bold,fontSize=11.sp)
+   }
   }
+  Spacer(Modifier.height(5.dp))
+  Text("Audio → Essentia · MIDI → note/chord parser · no upload · no server",color=Secondary,fontSize=10.sp)
   if(!isEditing){
    Spacer(Modifier.height(8.dp))
-   Text("After you pick the file, the app creates the song, analyzes BPM/key/chords with Essentia, caches JSON, then opens the player with the detected chord timeline.",color=Secondary,fontSize=11.sp)
+   Text("MP3 analyzes BPM/key/chords with Essentia. MIDI reads its notes, tempo and timing directly and infers the chord timeline locally.",color=Secondary,fontSize=11.sp)
   }
   Spacer(Modifier.height(14.dp))
   Text("Manual chart / lyrics${if(isEditing)"" else " (optional fallback)"}",color=Secondary,fontSize=11.sp)
