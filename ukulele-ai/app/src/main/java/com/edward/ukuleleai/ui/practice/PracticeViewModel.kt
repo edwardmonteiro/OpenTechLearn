@@ -11,6 +11,7 @@ import com.edward.ukuleleai.core.audio.LocalPitchDetector
 import com.edward.ukuleleai.data.analysis.LocalAnalysisRepository
 import com.edward.ukuleleai.data.song.LocalAudioRepository
 import com.edward.ukuleleai.data.song.LocalProgressRepository
+import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.data.song.ProgressSnapshot
 import com.edward.ukuleleai.domain.*
 import kotlinx.coroutines.Job
@@ -26,6 +27,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private val progressRepository = LocalProgressRepository(application)
     private val audioRepository = LocalAudioRepository(application)
     private val analysisRepository = LocalAnalysisRepository(application)
+    private val songRepository = LocalSongRepository(application)
     private val pitchDetector = LocalPitchDetector()
     private val _state = MutableStateFlow(PracticeState(song = DemoSong.song))
     val state: StateFlow<PracticeState> = _state.asStateFlow()
@@ -73,7 +75,9 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
             analysisSegments = cachedAnalysis?.chords?.size ?: 0,
             playAlongMode = if (analyzed) PlayAlongMode.LEARN else PlayAlongMode.PLAY,
             barHapticsEnabled = true,
-            rhythmPattern = RhythmPattern.BASIC
+            rhythmPattern = RhythmPattern.BASIC,
+            playbackRate = 1.0f,
+            loopLyricIndex = null
         )
     }
 
@@ -83,6 +87,97 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun setPlayAlongMode(mode: PlayAlongMode) { _state.value = _state.value.copy(playAlongMode = mode) }
     fun toggleBarHaptics() { _state.value = _state.value.copy(barHapticsEnabled = !_state.value.barHapticsEnabled) }
     fun setRhythmPattern(pattern: RhythmPattern) { _state.value = _state.value.copy(rhythmPattern = pattern) }
+
+    fun setPlaybackRate(rate: Float) {
+        val next = rate.coerceIn(0.5f, 1.25f)
+        _state.value = _state.value.copy(playbackRate = next)
+        backingPlayer?.let { player ->
+            runCatching {
+                player.playbackParams = player.playbackParams
+                    .setSpeed(next)
+                    .setPitch(1.0f)
+            }
+        }
+    }
+
+    fun seekToBeat(beat: Double) {
+        val end = originalSong.events.maxOfOrNull { it.beat + it.durationBeats } ?: 0.0
+        val target = beat.coerceIn(0.0, end)
+        val wasPlaying = _state.value.isPlaying
+        if (wasPlaying) {
+            backingPlayer?.pause()
+            startedAtBeat = target
+            startedAtNanos = SystemClock.elapsedRealtimeNanos()
+        }
+        _state.value = _state.value.copy(positionBeats = target)
+        if (_state.value.backingEnabled) {
+            val p = ensureBacking()
+            if (p != null) {
+                val ms = (target * 60_000.0 / _state.value.bpm).toInt()
+                    .coerceAtLeast(0)
+                    .coerceAtMost((p.duration - 1).coerceAtLeast(0))
+                runCatching {
+                    p.seekTo(ms)
+                    p.playbackParams = p.playbackParams
+                        .setSpeed(_state.value.playbackRate)
+                        .setPitch(1.0f)
+                    if (wasPlaying) p.start()
+                }
+            }
+        }
+    }
+
+    fun toggleLyricLoop(index: Int) {
+        val lyrics = _state.value.song.lyrics
+        if (index !in lyrics.indices) return
+        _state.value = _state.value.copy(
+            loopLyricIndex = if (_state.value.loopLyricIndex == index) null else index
+        )
+    }
+
+    fun clearLyricLoop() {
+        _state.value = _state.value.copy(loopLyricIndex = null)
+    }
+
+    fun saveTappedLyrics(lines: List<String>, beats: List<Double>) {
+        val clean = lines.map { it.trim() }.filter { it.isNotBlank() }
+        if (clean.isEmpty() || beats.isEmpty()) return
+        val count = minOf(clean.size, beats.size)
+        val songEnd = originalSong.events.maxOfOrNull { it.beat + it.durationBeats } ?: 0.0
+        val result = (0 until count).map { index ->
+            val start = beats[index].coerceIn(0.0, songEnd)
+            val end = if (index + 1 < count) beats[index + 1].coerceAtLeast(start + 0.05)
+            else songEnd.coerceAtLeast(start + _state.value.song.beatsPerBar)
+            LyricEvent(clean[index], start, (end - start).coerceAtLeast(0.05))
+        }
+        applyLyrics(result)
+    }
+
+    fun autoDistributeLyrics(raw: String) {
+        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.isEmpty()) return
+        val songEnd = originalSong.events.maxOfOrNull { it.beat + it.durationBeats } ?: return
+        val weights = lines.map { line -> line.count { !it.isWhitespace() }.coerceAtLeast(4).toDouble() }
+        val totalWeight = weights.sum().coerceAtLeast(1.0)
+        var cursor = 0.0
+        val result = lines.mapIndexed { index, line ->
+            val duration = if (index == lines.lastIndex) {
+                (songEnd - cursor).coerceAtLeast(0.25)
+            } else {
+                (songEnd * weights[index] / totalWeight).coerceAtLeast(0.25)
+            }
+            LyricEvent(line, cursor, duration).also { cursor += duration }
+        }
+        applyLyrics(result)
+    }
+
+    private fun applyLyrics(lyrics: List<LyricEvent>) {
+        val updated = originalSong.copy(lyrics = lyrics.sortedBy { it.beat })
+        songRepository.saveSong(updated)
+        originalSong = updated
+        val visible = if (_state.value.beginnerMode) simplifiedSong(updated) else updated
+        _state.value = _state.value.copy(song = visible, loopLyricIndex = null)
+    }
 
     fun toggleBeginner() {
         val next = !_state.value.beginnerMode
@@ -138,7 +233,16 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     private fun ensureBacking(): MediaPlayer? {
         val file = backingFile ?: return null
         if (backingPlayer == null) {
-            backingPlayer = runCatching { MediaPlayer().apply { setDataSource(file.absolutePath); prepare(); setVolume(.85f,.85f) } }.getOrNull()
+            backingPlayer = runCatching {
+                MediaPlayer().apply {
+                    setDataSource(file.absolutePath)
+                    prepare()
+                    setVolume(.85f,.85f)
+                    playbackParams = playbackParams
+                        .setSpeed(_state.value.playbackRate)
+                        .setPitch(1.0f)
+                }
+            }.getOrNull()
         }
         return backingPlayer
     }
@@ -147,7 +251,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (!_state.value.backingEnabled || _state.value.listeningEnabled) return
         val p = ensureBacking() ?: return
         val ms = (beat * 60_000.0 / _state.value.bpm).toInt().coerceAtLeast(0).coerceAtMost((p.duration - 1).coerceAtLeast(0))
-        runCatching { p.seekTo(ms); p.start() }
+        runCatching {
+            p.seekTo(ms)
+            p.playbackParams = p.playbackParams
+                .setSpeed(_state.value.playbackRate)
+                .setPitch(1.0f)
+            p.start()
+        }
     }
 
     private fun releaseBacking() { runCatching { backingPlayer?.stop() }; backingPlayer?.release(); backingPlayer = null }
@@ -182,6 +292,30 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                     _state.value = _state.value.copy(positionBeats=songEnd,isPlaying=false,countdown=null)
                     saveProgress(); break
                 }
+                val loopIndex = _state.value.loopLyricIndex
+                val lyricLoop = loopIndex?.let { _state.value.song.lyrics.getOrNull(it) }
+                if (lyricLoop != null && beat >= lyricLoop.beat + lyricLoop.durationBeats) {
+                    val target = lyricLoop.beat
+                    startedAtBeat = target
+                    startedAtNanos = SystemClock.elapsedRealtimeNanos()
+                    if (_state.value.backingEnabled && player != null) {
+                        val ms = (target * 60_000.0 / _state.value.bpm).toInt()
+                            .coerceAtLeast(0)
+                            .coerceAtMost((player.duration - 1).coerceAtLeast(0))
+                        runCatching {
+                            player.seekTo(ms)
+                            player.playbackParams = player.playbackParams
+                                .setSpeed(_state.value.playbackRate)
+                                .setPitch(1.0f)
+                            player.start()
+                        }
+                    }
+                    _state.value = _state.value.copy(positionBeats = target)
+                    lastMetronomeBeat = floor(target).toInt() - 1
+                    delay(16)
+                    continue
+                }
+
                 val integerBeat = floor(beat).toInt()
                 if (integerBeat > lastMetronomeBeat) {
                     lastMetronomeBeat = integerBeat
