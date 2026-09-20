@@ -134,9 +134,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun toggleLyricLoop(index: Int) {
         val lyrics = _state.value.song.lyrics
         if (index !in lyrics.indices) return
-        _state.value = _state.value.copy(
-            loopLyricIndex = if (_state.value.loopLyricIndex == index) null else index
-        )
+        val next = if (_state.value.loopLyricIndex == index) null else index
+        _state.value = _state.value.copy(loopLyricIndex = next)
+        if (next != null) {
+            val lyric = lyrics[next]
+            val leadIn = _state.value.song.beatsPerBar * 2.0
+            seekToBeat((lyric.beat - leadIn).coerceAtLeast(0.0))
+        }
     }
 
     fun clearLyricLoop() {
@@ -298,8 +302,13 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                 }
                 val loopIndex = _state.value.loopLyricIndex
                 val lyricLoop = loopIndex?.let { _state.value.song.lyrics.getOrNull(it) }
-                if (lyricLoop != null && beat >= lyricLoop.beat + lyricLoop.durationBeats) {
-                    val target = lyricLoop.beat
+                val loopLead = _state.value.song.beatsPerBar * 2.0
+                val loopTarget = lyricLoop?.let { (it.beat - loopLead).coerceAtLeast(0.0) }
+                val loopEnd = lyricLoop?.let {
+                    (it.beat + it.durationBeats + loopLead).coerceAtMost(songEnd)
+                }
+                if (lyricLoop != null && loopTarget != null && loopEnd != null && beat >= loopEnd) {
+                    val target = loopTarget
                     startedAtBeat = target
                     startedAtNanos = SystemClock.elapsedRealtimeNanos()
                     if (_state.value.backingEnabled && player != null) {
