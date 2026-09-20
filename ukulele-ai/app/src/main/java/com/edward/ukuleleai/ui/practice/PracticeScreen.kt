@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edward.ukuleleai.domain.*
@@ -67,7 +68,12 @@ fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},viewModel
         s=s,exit={viewModel.exit(onExit)},play=viewModel::togglePlayback,restart=viewModel::restart,
         setRhythm=viewModel::setRhythmPattern,toggleBeginner=viewModel::toggleBeginner,
         toggleBacking=viewModel::toggleBacking,toggleHaptics=viewModel::toggleBarHaptics,
-        listen=listen,editAnalysis=onEditAnalysis
+        listen=listen,editAnalysis=onEditAnalysis,
+        setPlaybackRate=viewModel::setPlaybackRate,
+        toggleLyricLoop=viewModel::toggleLyricLoop,
+        saveTappedLyrics=viewModel::saveTappedLyrics,
+        autoDistributeLyrics=viewModel::autoDistributeLyrics,
+        seekToBeat=viewModel::seekToBeat
     )
 }
 
@@ -75,9 +81,17 @@ fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},viewModel
 private fun PracticeHud(
     s:PracticeState,exit:()->Unit,play:()->Unit,restart:()->Unit,
     setRhythm:(RhythmPattern)->Unit,toggleBeginner:()->Unit,toggleBacking:()->Unit,
-    toggleHaptics:()->Unit,listen:()->Unit,editAnalysis:()->Unit
+    toggleHaptics:()->Unit,listen:()->Unit,editAnalysis:()->Unit,
+    setPlaybackRate:(Float)->Unit,toggleLyricLoop:(Int)->Unit,
+    saveTappedLyrics:(List<String>,List<Double>)->Unit,
+    autoDistributeLyrics:(String)->Unit,seekToBeat:(Double)->Unit
 ){
     var menuOpen by remember{mutableStateOf(false)}
+    var showLyricsEditor by remember{mutableStateOf(false)}
+    var lyricDraft by remember(s.song.id){mutableStateOf(s.song.lyrics.joinToString("\n"){it.text})}
+    var tapSyncMode by remember{mutableStateOf(false)}
+    var syncIndex by remember{mutableIntStateOf(0)}
+    val syncBeats=remember{mutableStateListOf<Double>()}
     val currentIndex=s.song.events.indexOfLast{s.positionBeats>=it.beat}.coerceAtLeast(0)
     val current=s.song.events.getOrNull(currentIndex)
     val next=s.song.events.drop(currentIndex+1).firstOrNull{it.chord!=current?.chord}
@@ -107,6 +121,14 @@ private fun PracticeHud(
         Spacer(Modifier.height(4.dp))
         CurrentNextFingering(current?.chord?:"—",next?.chord?:"—",beatsUntilNext,secondsUntilNext)
         Spacer(Modifier.height(4.dp))
+        LyricsLane(
+            s=s,
+            onEdit={showLyricsEditor=true},
+            onLoop=toggleLyricLoop,
+            onRate=setPlaybackRate,
+            onSeek=seekToBeat
+        )
+        Spacer(Modifier.height(4.dp))
         RhythmCoach(s,beatInBar,setRhythm)
         Spacer(Modifier.height(4.dp))
         UpcomingStrip(s)
@@ -126,6 +148,113 @@ private fun PracticeHud(
             Column(horizontalAlignment=Alignment.CenterHorizontally){
                 Text(count.toString(),color=White,fontSize=84.sp,fontWeight=FontWeight.ExtraLight)
                 Text("COUNT IN · PLAY ON 1",color=Fog,fontSize=9.sp,letterSpacing=1.4.sp)
+            }
+        }
+    }
+
+    if(showLyricsEditor){
+        val lines=lyricDraft.lines().map{it.trim()}.filter{it.isNotBlank()}
+        Dialog(onDismissRequest={
+            showLyricsEditor=false
+            tapSyncMode=false
+            syncIndex=0
+            syncBeats.clear()
+        }){
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(Color(0xFF111512),RoundedCornerShape(22.dp))
+                    .border(1.dp,Line,RoundedCornerShape(22.dp))
+                    .padding(16.dp)
+            ){
+                Text("LYRICS COACH",color=Acid,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp)
+                Spacer(Modifier.height(8.dp))
+                if(!tapSyncMode){
+                    Text("Paste one phrase per line",color=Fog,fontSize=10.sp)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value=lyricDraft,
+                        onValueChange={lyricDraft=it},
+                        modifier=Modifier.fillMaxWidth().height(210.dp),
+                        textStyle=androidx.compose.ui.text.TextStyle(color=White,fontSize=13.sp),
+                        colors=OutlinedTextFieldDefaults.colors(
+                            focusedTextColor=White,unfocusedTextColor=White,
+                            focusedBorderColor=Acid,unfocusedBorderColor=Line,
+                            cursorColor=Acid
+                        )
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        Button(
+                            onClick={
+                                if(lines.isNotEmpty()){
+                                    autoDistributeLyrics(lyricDraft)
+                                    showLyricsEditor=false
+                                }
+                            },
+                            enabled=lines.isNotEmpty(),
+                            modifier=Modifier.weight(1f),
+                            colors=ButtonDefaults.buttonColors(containerColor=Glass2,contentColor=White)
+                        ){Text("AUTO PLACE β",fontSize=9.sp,fontWeight=FontWeight.Bold)}
+                        Button(
+                            onClick={
+                                syncIndex=0
+                                syncBeats.clear()
+                                tapSyncMode=true
+                            },
+                            enabled=lines.isNotEmpty(),
+                            modifier=Modifier.weight(1f),
+                            colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night)
+                        ){Text("TAP TO SYNC",fontSize=9.sp,fontWeight=FontWeight.Bold)}
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("AUTO PLACE is a local timing estimate. TAP TO SYNC is the precise mode.",color=Fog,fontSize=8.sp)
+                }else{
+                    Text("Play the song, then tap when each phrase starts.",color=Fog,fontSize=10.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if(syncIndex<lines.size)lines[syncIndex] else "Done",
+                        color=White,fontSize=20.sp,fontWeight=FontWeight.Medium,
+                        modifier=Modifier.fillMaxWidth(),
+                        textAlign=TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("${syncIndex.coerceAtMost(lines.size)} / ${lines.size}",color=Fog,fontSize=9.sp,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center)
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick={
+                            if(syncIndex<lines.size){
+                                syncBeats.add(s.positionBeats)
+                                syncIndex++
+                                if(syncIndex>=lines.size){
+                                    saveTappedLyrics(lines,syncBeats.toList())
+                                    showLyricsEditor=false
+                                    tapSyncMode=false
+                                    syncIndex=0
+                                    syncBeats.clear()
+                                }
+                            }
+                        },
+                        enabled=syncIndex<lines.size,
+                        modifier=Modifier.fillMaxWidth().height(64.dp),
+                        colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night),
+                        shape=RoundedCornerShape(18.dp)
+                    ){Text("TAP PHRASE",fontSize=15.sp,fontWeight=FontWeight.ExtraBold)}
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        OutlinedButton(
+                            onClick=play,
+                            modifier=Modifier.weight(1f)
+                        ){Text(if(s.isPlaying)"PAUSE" else "PLAY",fontSize=10.sp)}
+                        OutlinedButton(
+                            onClick={
+                                tapSyncMode=false
+                                syncIndex=0
+                                syncBeats.clear()
+                            },
+                            modifier=Modifier.weight(1f)
+                        ){Text("BACK",fontSize=10.sp)}
+                    }
+                }
             }
         }
     }
