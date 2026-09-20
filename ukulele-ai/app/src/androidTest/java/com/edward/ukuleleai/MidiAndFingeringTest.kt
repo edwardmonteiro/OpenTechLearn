@@ -21,6 +21,11 @@ class MidiAndFingeringTest {
         assertTrue(song.events.map { it.chord }.distinct().size >= 2)
         assertTrue(song.events.first().chord.startsWith("C"))
         assertTrue(song.events.any { it.chord.startsWith("F") })
+        assertEquals(2, song.lyrics.size)
+        assertEquals("Hello from MIDI", song.lyrics[0].text)
+        assertEquals(0.0, song.lyrics[0].beat, 0.001)
+        assertEquals("Next line", song.lyrics[1].text)
+        assertEquals(2.0, song.lyrics[1].beat, 0.001)
 
         val c = UkuleleFingeringEngine.forChord("C")
         val f = UkuleleFingeringEngine.forChord("F")
@@ -35,9 +40,11 @@ class MidiAndFingeringTest {
 
         meta(track, 0, 0x51, byteArrayOf(0x07, 0xA1.toByte(), 0x20)) // 120 BPM
         meta(track, 0, 0x58, byteArrayOf(4, 2, 24, 8))
+        meta(track, 0, 0x05, "Hello from MIDI".toByteArray())
 
         noteOn(track,0,0,60,100); noteOn(track,0,0,64,96); noteOn(track,0,0,67,94)
         noteOff(track,960,0,60); noteOff(track,0,0,64); noteOff(track,0,0,67)
+        meta(track, 0, 0x05, "Next line".toByteArray())
 
         noteOn(track,0,0,65,100); noteOn(track,0,0,69,96); noteOn(track,0,0,72,94)
         noteOff(track,960,0,65); noteOff(track,0,0,69); noteOff(track,0,0,72)
