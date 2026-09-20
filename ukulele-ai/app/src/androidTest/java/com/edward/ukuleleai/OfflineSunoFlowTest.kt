@@ -47,6 +47,7 @@ class OfflineSunoFlowTest {
         compose.onNodeWithTag("current-chord").assertExists()
         compose.onNodeWithTag("next-chord").assertExists()
         compose.onNodeWithTag("rhythm-coach").assertExists()
+        compose.onNodeWithTag("lyrics-lane").assertExists()
         compose.onNodeWithTag("play-button").assertExists()
         compose.onNodeWithText("BASIC").assertExists()
 
