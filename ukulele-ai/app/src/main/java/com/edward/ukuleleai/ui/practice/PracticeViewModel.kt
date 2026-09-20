@@ -90,6 +90,10 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
 
     fun setPlaybackRate(rate: Float) {
         val next = rate.coerceIn(0.5f, 1.25f)
+        if (_state.value.isPlaying && !_state.value.backingEnabled) {
+            startedAtBeat = _state.value.positionBeats
+            startedAtNanos = SystemClock.elapsedRealtimeNanos()
+        }
         _state.value = _state.value.copy(playbackRate = next)
         backingPlayer?.let { player ->
             runCatching {
@@ -268,7 +272,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
         if (_state.value.positionBeats >= endBeat - .001) _state.value = _state.value.copy(positionBeats=0.0,melodyTrail=emptyList())
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
-            val beatDurationMs = (60_000.0 / _state.value.bpm).toLong()
+            val beatDurationMs = (60_000.0 / (_state.value.bpm * _state.value.playbackRate)).toLong()
             for (count in 4 downTo 1) { _state.value = _state.value.copy(countdown=count); pulseBeat(count==1); delay(beatDurationMs) }
             startedAtBeat = _state.value.positionBeats
             startedAtNanos = SystemClock.elapsedRealtimeNanos()
@@ -282,7 +286,7 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
                     player!!.currentPosition * _state.value.bpm / 60_000.0
                 } else {
                     val elapsed = SystemClock.elapsedRealtimeNanos() - startedAtNanos
-                    startedAtBeat + elapsed / 60_000_000_000.0 * _state.value.bpm
+                    startedAtBeat + elapsed / 60_000_000_000.0 * _state.value.bpm * _state.value.playbackRate
                 }
                 val songEnd = originalSong.events.maxOf { it.beat + it.durationBeats }
                 val playerEnded = _state.value.backingEnabled && player != null && !runCatching { player.isPlaying }.getOrDefault(false) && player.currentPosition > 0
