@@ -41,5 +41,7 @@ data class PracticeState(
     val analysisSegments: Int = 0,
     val playAlongMode: PlayAlongMode = PlayAlongMode.LEARN,
     val barHapticsEnabled: Boolean = true,
-    val rhythmPattern: RhythmPattern = RhythmPattern.BASIC
+    val rhythmPattern: RhythmPattern = RhythmPattern.BASIC,
+    val playbackRate: Float = 1.0f,
+    val loopLyricIndex: Int? = null
 )
