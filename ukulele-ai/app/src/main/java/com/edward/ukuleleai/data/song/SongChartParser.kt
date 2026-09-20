@@ -84,11 +84,19 @@ object SongChartParser {
         val lyrics = lyricSource.map { it.trim() }
             .filter { it.isNotBlank() && !it.startsWith("#") }
             .mapIndexedNotNull { index, line ->
-                val explicit = Regex("^@(\\d+)\\s+(.+)$").matchEntire(line)
-                val barNumber = explicit?.groupValues?.get(1)?.toIntOrNull() ?: (index + 1)
-                val text = explicit?.groupValues?.get(2)?.trim() ?: line
-                val startBeat = (barNumber - 1).coerceAtLeast(0) * beatsPerBar.toDouble()
-                if (startBeat < beat && text.isNotBlank()) LyricEvent(text, startBeat, beatsPerBar.toDouble()) else null
+                val timed = Regex("^@beat\\s+([0-9.]+)\\s+([0-9.]+)\\s+(.+)$").matchEntire(line)
+                if (timed != null) {
+                    val startBeat = timed.groupValues[1].toDouble()
+                    val duration = timed.groupValues[2].toDouble().coerceAtLeast(0.05)
+                    val text = timed.groupValues[3].trim()
+                    if (text.isNotBlank()) LyricEvent(text, startBeat, duration) else null
+                } else {
+                    val explicit = Regex("^@(\\d+)\\s+(.+)$").matchEntire(line)
+                    val barNumber = explicit?.groupValues?.get(1)?.toIntOrNull() ?: (index + 1)
+                    val text = explicit?.groupValues?.get(2)?.trim() ?: line
+                    val startBeat = (barNumber - 1).coerceAtLeast(0) * beatsPerBar.toDouble()
+                    if (startBeat < beat && text.isNotBlank()) LyricEvent(text, startBeat, beatsPerBar.toDouble()) else null
+                }
             }
 
         Song(id = id, title = title, bpm = bpm, beatsPerBar = beatsPerBar, events = events, lyrics = lyrics)
