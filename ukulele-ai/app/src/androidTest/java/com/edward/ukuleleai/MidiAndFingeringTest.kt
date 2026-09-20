@@ -1,6 +1,8 @@
 package com.edward.ukuleleai
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.data.midi.StandardMidiAnalyzer
 import com.edward.ukuleleai.domain.UkuleleFingeringEngine
 import org.junit.Assert.assertEquals
@@ -26,6 +28,14 @@ class MidiAndFingeringTest {
         assertEquals(0.0, song.lyrics[0].beat, 0.001)
         assertEquals("Next line", song.lyrics[1].text)
         assertEquals(2.0, song.lyrics[1].beat, 0.001)
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val repository = LocalSongRepository(context)
+        repository.saveSong(song)
+        val restored = repository.get(song.id)
+        assertEquals(2, restored?.lyrics?.size)
+        assertEquals("Hello from MIDI", restored?.lyrics?.get(0)?.text)
+        assertEquals(2.0, restored?.lyrics?.get(1)?.beat ?: -1.0, 0.001)
 
         val c = UkuleleFingeringEngine.forChord("C")
         val f = UkuleleFingeringEngine.forChord("F")
