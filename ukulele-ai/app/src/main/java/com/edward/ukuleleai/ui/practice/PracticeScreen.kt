@@ -334,6 +334,11 @@ private fun CurrentNextFingering(current:String,next:String,beatsUntilNext:Doubl
                 fontWeight=if(beatsUntilNext<=1.0)FontWeight.Bold else FontWeight.Medium,maxLines=1
             )
         }
+        val handHint=if((beatsUntilNext?:99.0)<=2.0)prepareHandsHint(current,next) else null
+        if(handHint!=null){
+            Spacer(Modifier.height(2.dp))
+            Text(handHint,color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        }
         Spacer(Modifier.height(2.dp))
         FingerLegend()
     }
@@ -422,6 +427,97 @@ private fun FingerLegend(){
                 if(i<labels.lastIndex)Spacer(Modifier.width(6.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun LyricsLane(
+    s:PracticeState,
+    onEdit:()->Unit,
+    onLoop:(Int)->Unit,
+    onRate:(Float)->Unit,
+    onSeek:(Double)->Unit
+){
+    val lyrics=s.song.lyrics
+    val currentIndex=lyrics.indexOfLast{s.positionBeats>=it.beat}
+    val current=lyrics.getOrNull(currentIndex)
+    val next=lyrics.getOrNull(currentIndex+1)
+    val looping=currentIndex>=0&&s.loopLyricIndex==currentIndex
+
+    Column(
+        Modifier.fillMaxWidth().height(70.dp).testTag("lyrics-lane")
+            .background(Glass,RoundedCornerShape(16.dp))
+            .border(1.dp,Line,RoundedCornerShape(16.dp))
+            .padding(horizontal=8.dp,vertical=6.dp)
+    ){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            Column(Modifier.weight(1f)){
+                Text("LYRICS",color=Mint,fontSize=7.sp,letterSpacing=1.sp,fontWeight=FontWeight.Bold)
+                Text(
+                    current?.text ?: if(lyrics.isEmpty())"Paste lyrics and sync them" else "Get ready…",
+                    color=White,fontSize=11.sp,fontWeight=FontWeight.SemiBold,maxLines=1
+                )
+                Text(
+                    next?.text ?: if(lyrics.isEmpty())"Tap LYRICS to add text" else " ",
+                    color=Fog,fontSize=8.sp,maxLines=1
+                )
+            }
+            Text(
+                "EDIT",
+                color=Acid,fontSize=7.sp,fontWeight=FontWeight.Bold,
+                modifier=Modifier
+                    .background(Glass2,RoundedCornerShape(8.dp))
+                    .clickable(onClick=onEdit)
+                    .padding(horizontal=7.dp,vertical=5.dp)
+            )
+        }
+        Spacer(Modifier.height(3.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            if(currentIndex>=0){
+                Text(
+                    if(looping)"LOOP ON" else "LOOP LINE",
+                    color=if(looping)Acid else Fog,
+                    fontSize=6.sp,fontWeight=FontWeight.Bold,
+                    modifier=Modifier.clickable{onLoop(currentIndex)}.padding(end=8.dp)
+                )
+                Text(
+                    "↺ LINE",
+                    color=Fog,fontSize=6.sp,
+                    modifier=Modifier.clickable{onSeek(current!!.beat)}.padding(end=10.dp)
+                )
+            }else{
+                Spacer(Modifier.weight(1f))
+            }
+            Spacer(Modifier.weight(1f))
+            listOf(.75f,.85f,1f).forEach{rate->
+                val selected=kotlin.math.abs(s.playbackRate-rate)<.01f
+                Text(
+                    "${if(rate==1f)"1.0" else rate}×",
+                    color=if(selected)Night else Fog,
+                    fontSize=6.sp,fontWeight=FontWeight.Bold,
+                    modifier=Modifier
+                        .background(if(selected)Acid else Glass2,RoundedCornerShape(7.dp))
+                        .clickable{onRate(rate)}
+                        .padding(horizontal=6.dp,vertical=3.dp)
+                )
+                Spacer(Modifier.width(3.dp))
+            }
+        }
+    }
+}
+
+private fun prepareHandsHint(current:String,next:String):String?{
+    val from=UkuleleFingeringEngine.forChord(current)?:return null
+    val to=UkuleleFingeringEngine.forChord(next)?:return null
+    val strings=listOf("G","C","E","A")
+    val changed=to.frets.indices.filter{to.frets[it]!=from.frets[it]}
+    if(changed.isEmpty())return "Keep the same shape"
+    val target=changed.firstOrNull{to.frets[it]>0}?:changed.first()
+    return if(to.frets[target]>0){
+        val finger=to.fingers[target].coerceIn(1,4)
+        "PREPARE HANDS · finger $finger → ${strings[target]} fret ${to.frets[target]}"
+    }else{
+        "PREPARE HANDS · release ${strings[target]} string"
     }
 }
 
