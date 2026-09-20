@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.domain.ChordEvent
+import com.edward.ukuleleai.domain.LyricEvent
 import com.edward.ukuleleai.domain.Song
 import java.io.File
 import java.util.UUID
@@ -63,13 +64,14 @@ object StandardMidiAnalyzer {
         val tempos = mutableListOf<Tempo>()
         val signatures = mutableListOf<TimeSignature>()
         val names = mutableListOf<String>()
+        val lyricTicks = mutableListOf<Pair<Long, String>>()
 
         repeat(trackCount) {
             require(cursor.remaining >= 8) { "Truncated MIDI track." }
             require(cursor.readAscii(4) == "MTrk") { "Invalid MIDI track header." }
             val length = cursor.readU32().toInt()
             val end = (cursor.pos + length).coerceAtMost(bytes.size)
-            parseTrack(cursor, end, notes, tempos, signatures, names)
+            parseTrack(cursor, end, notes, tempos, signatures, names, lyricTicks)
             cursor.pos = end
         }
 
@@ -87,12 +89,29 @@ object StandardMidiAnalyzer {
         val events = inferChords(musicalNotes, ppq)
         require(events.isNotEmpty()) { "Could not infer chords from MIDI notes." }
 
+        val songEndBeat = events.maxOf { it.beat + it.durationBeats }
+        val cleanedLyrics = lyricTicks
+            .map { (tick, text) -> tick.toDouble() / ppq to text.replace("\r", "").trim() }
+            .filter { (_, text) -> text.isNotBlank() && !text.startsWith("@") }
+            .sortedBy { it.first }
+
+        val lyrics = cleanedLyrics.mapIndexed { index, item ->
+            val startBeat = item.first.coerceAtLeast(0.0)
+            val nextBeat = cleanedLyrics.getOrNull(index + 1)?.first ?: songEndBeat
+            LyricEvent(
+                text = item.second.removePrefix("\\").removePrefix("/").trim(),
+                beat = startBeat,
+                durationBeats = (nextBeat - startBeat).coerceAtLeast(0.25)
+            )
+        }.filter { it.text.isNotBlank() }
+
         return Song(
             id = id,
             title = title,
             bpm = bpm,
             beatsPerBar = beatsPerBar,
-            events = events
+            events = events,
+            lyrics = lyrics
         )
     }
 
@@ -102,7 +121,8 @@ object StandardMidiAnalyzer {
         notes: MutableList<MidiNote>,
         tempos: MutableList<Tempo>,
         signatures: MutableList<TimeSignature>,
-        names: MutableList<String>
+        names: MutableList<String>,
+        lyrics: MutableList<Pair<Long, String>>
     ) {
         var tick = 0L
         var runningStatus = -1
@@ -155,6 +175,10 @@ object StandardMidiAnalyzer {
                     val length = cursor.readVarLen().toInt()
                     val start = cursor.pos
                     when (type) {
+                        0x01, 0x05 -> {
+                            val text = cursor.readBytes(length).toString(Charsets.ISO_8859_1)
+                            lyrics += tick to text
+                        }
                         0x03 -> names += cursor.readBytes(length).toString(Charsets.ISO_8859_1)
                         0x51 -> if (length >= 3) {
                             val a = cursor.readU8()
