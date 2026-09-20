@@ -2,7 +2,7 @@ package com.edward.ukuleleai.data.song
 
 import android.content.Context
 import com.edward.ukuleleai.data.analysis.LocalAnalysisRepository
-import com.edward.ukuleleai.domain.Song
+import com.edward.ukuleleai.domain.LyricEvent\nimport com.edward.ukuleleai.domain.Song
 import java.io.File
 import java.util.UUID
 
@@ -45,9 +45,20 @@ class LocalSongRepository(context: Context) {
             song.events.forEach { event ->
                 appendLine("@event ${event.beat} ${event.durationBeats} ${event.chord}")
             }
+            if (song.lyrics.isNotEmpty()) {
+                appendLine("[Lyrics]")
+                song.lyrics.sortedBy { it.beat }.forEach { lyric ->
+                    appendLine("@beat ${lyric.beat} ${lyric.durationBeats} ${lyric.text.replace("\n", " ").trim()}")
+                }
+            }
         }
         File(songsDir, "${song.id}.$EXTENSION").writeText(raw)
         return song
+    }
+
+    fun updateLyrics(songId: String, lyrics: List<LyricEvent>): Song {
+        val current = get(songId) ?: error("Song not found.")
+        return saveSong(current.copy(lyrics = lyrics.sortedBy { it.beat }))
     }
 
     private fun saveChart(raw: String, id: String): Result<Song> {
