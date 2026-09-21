@@ -2,7 +2,8 @@ package com.edward.ukuleleai.data.song
 
 import android.content.Context
 import com.edward.ukuleleai.data.analysis.LocalAnalysisRepository
-import com.edward.ukuleleai.domain.LyricEvent\nimport com.edward.ukuleleai.domain.Song
+import com.edward.ukuleleai.domain.LyricEvent
+import com.edward.ukuleleai.domain.Song
 import java.io.File
 import java.util.UUID
 
