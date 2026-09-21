@@ -6,11 +6,49 @@ data class UkuleleFingering(
     val fingers: List<Int>
 )
 
+fun ukuleleChordDisplayName(rawChord: String): String {
+    val chord = simplifyUkuleleChord(rawChord)
+    val names = mapOf(
+        "C" to "Dó", "C#" to "Dó♯", "Db" to "Ré♭",
+        "D" to "Ré", "D#" to "Ré♯", "Eb" to "Mi♭",
+        "E" to "Mi", "F" to "Fá", "F#" to "Fá♯", "Gb" to "Sol♭",
+        "G" to "Sol", "G#" to "Sol♯", "Ab" to "Lá♭",
+        "A" to "Lá", "A#" to "Lá♯", "Bb" to "Si♭",
+        "B" to "Si"
+    )
+    val match = Regex("^([A-G](?:#|b)?)(m?)$").matchEntire(chord) ?: return chord
+    val root = match.groupValues[1]
+    val minor = match.groupValues[2] == "m"
+    val latin = names[root] ?: return chord
+    return if (minor) "$chord · $latin menor" else "$chord · $latin"
+}
+
 object UkuleleFingeringEngine {
     private val tuning = intArrayOf(7, 0, 4, 9) // G C E A
 
+    // First choice: familiar beginner shapes, not merely mathematically valid voicings.
+    private val canonical = mapOf(
+        "C"  to UkuleleFingering("C",  listOf(0,0,0,3), listOf(0,0,0,3)),
+        "Cm" to UkuleleFingering("Cm", listOf(0,3,3,3), listOf(0,1,1,1)),
+        "D"  to UkuleleFingering("D",  listOf(2,2,2,0), listOf(1,1,1,0)),
+        "Dm" to UkuleleFingering("Dm", listOf(2,2,1,0), listOf(2,3,1,0)),
+        "E"  to UkuleleFingering("E",  listOf(1,4,0,2), listOf(1,4,0,2)),
+        "Em" to UkuleleFingering("Em", listOf(0,4,3,2), listOf(0,3,2,1)),
+        "F"  to UkuleleFingering("F",  listOf(2,0,1,0), listOf(2,0,1,0)),
+        "Fm" to UkuleleFingering("Fm", listOf(1,0,1,3), listOf(1,0,2,4)),
+        "G"  to UkuleleFingering("G",  listOf(0,2,3,2), listOf(0,1,3,2)),
+        "Gm" to UkuleleFingering("Gm", listOf(0,2,3,1), listOf(0,2,3,1)),
+        "A"  to UkuleleFingering("A",  listOf(2,1,0,0), listOf(2,1,0,0)),
+        "Am" to UkuleleFingering("Am", listOf(2,0,0,0), listOf(2,0,0,0)),
+        "Bb" to UkuleleFingering("Bb", listOf(3,2,1,1), listOf(4,3,1,1)),
+        "B"  to UkuleleFingering("B",  listOf(4,3,2,2), listOf(4,3,1,1)),
+        "Bm" to UkuleleFingering("Bm", listOf(4,2,2,2), listOf(3,1,1,1))
+    )
+
     fun forChord(rawChord: String): UkuleleFingering? {
         val chord = simplifyUkuleleChord(rawChord)
+        canonical[chord]?.let { return it }
+
         val match = Regex("^([A-G])([#b]?)(m?)$").matchEntire(chord) ?: return null
         val natural = when (match.groupValues[1]) {
             "C" -> 0; "D" -> 2; "E" -> 4; "F" -> 5
@@ -48,12 +86,11 @@ object UkuleleFingeringEngine {
 
         val frets = best ?: return null
         val fingers = MutableList(4) { 0 }
-        val frettedStrings = frets.indices.filter { frets[it] > 0 }
+        frets.indices.filter { frets[it] > 0 }
             .sortedWith(compareBy<Int> { frets[it] }.thenBy { it })
-
-        frettedStrings.forEachIndexed { index, stringIndex ->
-            fingers[stringIndex] = (index + 1).coerceAtMost(4)
-        }
+            .forEachIndexed { index, stringIndex ->
+                fingers[stringIndex] = (index + 1).coerceAtMost(4)
+            }
 
         return UkuleleFingering(chord, frets, fingers)
     }
