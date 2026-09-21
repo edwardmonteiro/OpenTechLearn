@@ -164,19 +164,41 @@ class PracticeViewModel(application: Application) : AndroidViewModel(application
     fun autoDistributeLyrics(raw: String) {
         val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
         if (lines.isEmpty()) return
-        val songEnd = originalSong.events.maxOfOrNull { it.beat + it.durationBeats } ?: return
-        val weights = lines.map { line -> line.count { !it.isWhitespace() }.coerceAtLeast(4).toDouble() }
-        val totalWeight = weights.sum().coerceAtLeast(1.0)
-        var cursor = 0.0
-        val result = lines.mapIndexed { index, line ->
-            val duration = if (index == lines.lastIndex) {
-                (songEnd - cursor).coerceAtLeast(0.25)
-            } else {
-                (songEnd * weights[index] / totalWeight).coerceAtLeast(0.25)
-            }
-            LyricEvent(line, cursor, duration).also { cursor += duration }
+        val beats = suggestLyricBeats(raw)
+        saveTappedLyrics(lines, beats)
+    }
+
+    fun suggestLyricBeats(raw: String): List<Double> {
+        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.isEmpty()) return emptyList()
+        val songEnd = originalSong.events.maxOfOrNull { it.beat + it.durationBeats } ?: return emptyList()
+
+        val weights = lines.map { line ->
+            (line.count { !it.isWhitespace() }.coerceAtLeast(4) + line.count { it in ",.;:!?—-" } * 3).toDouble()
         }
-        applyLyrics(result)
+        val totalWeight = weights.sum().coerceAtLeast(1.0)
+
+        val bar = _state.value.song.beatsPerBar.toDouble().coerceAtLeast(1.0)
+        val candidates = buildList {
+            add(0.0)
+            originalSong.events.forEach { add(it.beat) }
+            var beat = 0.0
+            while (beat <= songEnd) {
+                add(beat)
+                beat += bar
+            }
+        }.distinct().sorted()
+
+        var cumulative = 0.0
+        var previous = -0.01
+        return lines.indices.map { index ->
+            val ideal = if (index == 0) 0.0 else songEnd * cumulative / totalWeight
+            val available = candidates.filter { it > previous + 0.2 }
+            val snapped = available.minByOrNull { kotlin.math.abs(it - ideal) } ?: ideal
+            previous = snapped
+            cumulative += weights[index]
+            snapped.coerceIn(0.0, songEnd)
+        }
     }
 
     private fun applyLyrics(lyrics: List<LyricEvent>) {
