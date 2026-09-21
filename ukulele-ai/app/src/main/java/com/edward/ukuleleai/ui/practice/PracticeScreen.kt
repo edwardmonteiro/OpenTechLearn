@@ -73,6 +73,7 @@ fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},viewModel
         toggleLyricLoop=viewModel::toggleLyricLoop,
         saveTappedLyrics=viewModel::saveTappedLyrics,
         autoDistributeLyrics=viewModel::autoDistributeLyrics,
+        suggestLyricBeats=viewModel::suggestLyricBeats,
         seekToBeat=viewModel::seekToBeat
     )
 }
@@ -84,12 +85,15 @@ private fun PracticeHud(
     toggleHaptics:()->Unit,listen:()->Unit,editAnalysis:()->Unit,
     setPlaybackRate:(Float)->Unit,toggleLyricLoop:(Int)->Unit,
     saveTappedLyrics:(List<String>,List<Double>)->Unit,
-    autoDistributeLyrics:(String)->Unit,seekToBeat:(Double)->Unit
+    autoDistributeLyrics:(String)->Unit,
+    suggestLyricBeats:(String)->List<Double>,
+    seekToBeat:(Double)->Unit
 ){
     var menuOpen by remember{mutableStateOf(false)}
     var showLyricsEditor by remember{mutableStateOf(false)}
     var lyricDraft by remember(s.song.id){mutableStateOf(s.song.lyrics.joinToString("\n"){it.text})}
     var tapSyncMode by remember{mutableStateOf(false)}
+    var smartReviewMode by remember{mutableStateOf(false)}
     var syncIndex by remember{mutableIntStateOf(0)}
     val syncBeats=remember{mutableStateListOf<Double>()}
     val currentIndex=s.song.events.indexOfLast{s.positionBeats>=it.beat}.coerceAtLeast(0)
@@ -157,6 +161,7 @@ private fun PracticeHud(
         Dialog(onDismissRequest={
             showLyricsEditor=false
             tapSyncMode=false
+            smartReviewMode=false
             syncIndex=0
             syncBeats.clear()
         }){
@@ -187,73 +192,151 @@ private fun PracticeHud(
                         Button(
                             onClick={
                                 if(lines.isNotEmpty()){
-                                    autoDistributeLyrics(lyricDraft)
-                                    showLyricsEditor=false
+                                    val suggested=suggestLyricBeats(lyricDraft)
+                                    syncBeats.clear()
+                                    syncBeats.addAll(suggested)
+                                    syncIndex=0
+                                    smartReviewMode=true
+                                    tapSyncMode=true
+                                    setPlaybackRate(.75f)
                                 }
                             },
                             enabled=lines.isNotEmpty(),
                             modifier=Modifier.weight(1f),
                             colors=ButtonDefaults.buttonColors(containerColor=Glass2,contentColor=White)
-                        ){Text("AUTO PLACE β",fontSize=9.sp,fontWeight=FontWeight.Bold)}
+                        ){Text("SMART SYNC β",fontSize=9.sp,fontWeight=FontWeight.Bold)}
                         Button(
                             onClick={
                                 syncIndex=0
                                 syncBeats.clear()
+                                smartReviewMode=false
                                 tapSyncMode=true
+                                setPlaybackRate(.75f)
                             },
                             enabled=lines.isNotEmpty(),
                             modifier=Modifier.weight(1f),
                             colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night)
-                        ){Text("TAP TO SYNC",fontSize=9.sp,fontWeight=FontWeight.Bold)}
+                        ){Text("EASY SYNC",fontSize=9.sp,fontWeight=FontWeight.Bold)}
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("AUTO PLACE is a local timing estimate. TAP TO SYNC is the precise mode.",color=Fog,fontSize=8.sp)
+                    Text("SMART SYNC suggests phrase starts from chords/bars. EASY SYNC lets you tap anywhere.",color=Fog,fontSize=8.sp)
                 }else{
-                    Text("Play the song, then tap when each phrase starts.",color=Fog,fontSize=10.sp)
-                    Spacer(Modifier.height(12.dp))
+                    val deltaBeat=s.bpm/120.0
                     Text(
-                        if(syncIndex<lines.size)lines[syncIndex] else "Done",
-                        color=White,fontSize=20.sp,fontWeight=FontWeight.Medium,
-                        modifier=Modifier.fillMaxWidth(),
-                        textAlign=TextAlign.Center
+                        if(smartReviewMode)"Review the suggested timing" else "Play at 0.75× and tap anywhere when the phrase starts",
+                        color=Fog,fontSize=10.sp
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("${syncIndex.coerceAtMost(lines.size)} / ${lines.size}",color=Fog,fontSize=9.sp,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center)
-                    Spacer(Modifier.height(14.dp))
-                    Button(
-                        onClick={
-                            if(syncIndex<lines.size){
-                                syncBeats.add(s.positionBeats)
-                                syncIndex++
-                                if(syncIndex>=lines.size){
-                                    saveTappedLyrics(lines,syncBeats.toList())
-                                    showLyricsEditor=false
-                                    tapSyncMode=false
-                                    syncIndex=0
-                                    syncBeats.clear()
+                    Box(
+                        Modifier.fillMaxWidth().height(150.dp)
+                            .background(Glass2,RoundedCornerShape(20.dp))
+                            .border(1.dp,if(smartReviewMode)Mint else Acid,RoundedCornerShape(20.dp))
+                            .clickable {
+                                if(!smartReviewMode && syncIndex<lines.size){
+                                    syncBeats.add(s.positionBeats)
+                                    syncIndex++
                                 }
-                            }
-                        },
-                        enabled=syncIndex<lines.size,
-                        modifier=Modifier.fillMaxWidth().height(64.dp),
-                        colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night),
-                        shape=RoundedCornerShape(18.dp)
-                    ){Text("TAP PHRASE",fontSize=15.sp,fontWeight=FontWeight.ExtraBold)}
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                        OutlinedButton(
-                            onClick=play,
-                            modifier=Modifier.weight(1f)
-                        ){Text(if(s.isPlaying)"PAUSE" else "PLAY",fontSize=10.sp)}
-                        OutlinedButton(
-                            onClick={
-                                tapSyncMode=false
-                                syncIndex=0
-                                syncBeats.clear()
                             },
-                            modifier=Modifier.weight(1f)
-                        ){Text("BACK",fontSize=10.sp)}
+                        contentAlignment=Alignment.Center
+                    ){
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            Text(
+                                if(syncIndex<lines.size)lines[syncIndex] else "All phrases marked",
+                                color=White,fontSize=22.sp,fontWeight=FontWeight.SemiBold,
+                                textAlign=TextAlign.Center,
+                                modifier=Modifier.padding(horizontal=16.dp)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                if(smartReviewMode && syncIndex<syncBeats.size)
+                                    "Suggested at ${String.format("%.1f",syncBeats[syncIndex]*60.0/s.bpm)}s"
+                                else if(syncIndex<lines.size)"TAP ANYWHERE"
+                                else "REVIEW / SAVE",
+                                color=if(smartReviewMode)Mint else Acid,
+                                fontSize=10.sp,fontWeight=FontWeight.Bold
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text("${syncIndex.coerceAtMost(lines.size)} / ${lines.size}",color=Fog,fontSize=9.sp,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center)
+                    Spacer(Modifier.height(8.dp))
+                    if(smartReviewMode){
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                            OutlinedButton(
+                                onClick={
+                                    if(syncIndex in syncBeats.indices){
+                                        syncBeats[syncIndex]=(syncBeats[syncIndex]-deltaBeat).coerceAtLeast(0.0)
+                                    }
+                                },
+                                modifier=Modifier.weight(1f)
+                            ){Text("−0.5s",fontSize=10.sp)}
+                            OutlinedButton(
+                                onClick={
+                                    if(syncIndex in syncBeats.indices){
+                                        syncBeats[syncIndex]+=deltaBeat
+                                    }
+                                },
+                                modifier=Modifier.weight(1f)
+                            ){Text("+0.5s",fontSize=10.sp)}
+                            Button(
+                                onClick={
+                                    if(syncIndex<lines.lastIndex) syncIndex++
+                                    else{
+                                        saveTappedLyrics(lines,syncBeats.toList())
+                                        showLyricsEditor=false
+                                        tapSyncMode=false
+                                        smartReviewMode=false
+                                        setPlaybackRate(1f)
+                                    }
+                                },
+                                modifier=Modifier.weight(1f),
+                                colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night)
+                            ){Text(if(syncIndex<lines.lastIndex)"NEXT" else "SAVE",fontSize=10.sp,fontWeight=FontWeight.Bold)}
+                        }
+                    }else{
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
+                            OutlinedButton(
+                                onClick={
+                                    if(syncBeats.isNotEmpty()){
+                                        syncBeats.removeAt(syncBeats.lastIndex)
+                                        syncIndex=(syncIndex-1).coerceAtLeast(0)
+                                    }
+                                },
+                                modifier=Modifier.weight(1f)
+                            ){Text("UNDO",fontSize=10.sp)}
+                            OutlinedButton(
+                                onClick=play,
+                                modifier=Modifier.weight(1f)
+                            ){Text(if(s.isPlaying)"PAUSE" else "PLAY",fontSize=10.sp)}
+                            Button(
+                                onClick={
+                                    if(syncBeats.size==lines.size){
+                                        saveTappedLyrics(lines,syncBeats.toList())
+                                        showLyricsEditor=false
+                                        tapSyncMode=false
+                                        setPlaybackRate(1f)
+                                    }
+                                },
+                                enabled=syncBeats.size==lines.size,
+                                modifier=Modifier.weight(1f),
+                                colors=ButtonDefaults.buttonColors(containerColor=Acid,contentColor=Night)
+                            ){Text("SAVE",fontSize=10.sp,fontWeight=FontWeight.Bold)}
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Fine tune later with ±0.5s. You do not need to hit the exact millisecond.",color=Fog,fontSize=8.sp,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "BACK",
+                        color=Fog,fontSize=8.sp,fontWeight=FontWeight.Bold,
+                        modifier=Modifier.align(Alignment.CenterHorizontally).clickable{
+                            tapSyncMode=false
+                            smartReviewMode=false
+                            syncIndex=0
+                            syncBeats.clear()
+                            setPlaybackRate(1f)
+                        }.padding(6.dp)
+                    )
                 }
             }
         }
@@ -354,7 +437,11 @@ private fun FingeringCard(modifier:Modifier,label:String,chord:String,shape:Ukul
     ){
         Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){
             Text(label,color=if(accent)Acid else Fog,fontSize=6.sp,letterSpacing=.8.sp,fontWeight=FontWeight.Bold)
-            Text(chord,color=if(accent)Acid else White,fontSize=if(chord.length<=4)22.sp else 17.sp,fontWeight=FontWeight.Bold,maxLines=1)
+            Column(horizontalAlignment=Alignment.End){
+                Text(chord,color=if(accent)Acid else White,fontSize=if(chord.length<=4)22.sp else 17.sp,fontWeight=FontWeight.Bold,maxLines=1)
+                val latin=ukuleleChordDisplayName(chord).substringAfter("·","").trim()
+                if(latin.isNotBlank()) Text(latin,color=Fog,fontSize=6.sp,maxLines=1)
+            }
         }
         if(shape!=null)UkuleleDiagram(shape,Modifier.fillMaxWidth().weight(1f).testTag("fingering-diagram"))
         else Box(Modifier.fillMaxWidth().weight(1f),contentAlignment=Alignment.Center){Text("—",color=Fog,fontSize=18.sp)}
