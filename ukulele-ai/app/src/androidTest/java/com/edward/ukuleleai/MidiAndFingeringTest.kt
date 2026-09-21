@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.edward.ukuleleai.data.song.LocalSongRepository
 import com.edward.ukuleleai.data.midi.StandardMidiAnalyzer
 import com.edward.ukuleleai.domain.UkuleleFingeringEngine
+import com.edward.ukuleleai.domain.ukuleleChordDisplayName
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,6 +42,8 @@ class MidiAndFingeringTest {
         val f = UkuleleFingeringEngine.forChord("F")
         val am = UkuleleFingeringEngine.forChord("Am")
         assertEquals(listOf(0,0,0,3), c?.frets)
+        assertEquals(listOf(0,0,0,3), c?.fingers)
+        assertEquals("C · Dó", ukuleleChordDisplayName("C"))
         assertEquals(listOf(2,0,1,0), f?.frets)
         assertEquals(listOf(2,0,0,0), am?.frets)
     }
