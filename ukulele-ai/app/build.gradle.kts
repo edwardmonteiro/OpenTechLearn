@@ -12,8 +12,8 @@ android {
         applicationId = "com.edward.ukuleleai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 21
-        versionName = "0.14.5-landscape-fix"
+        versionCode = 22
+        versionName = "0.14.6-stable-transitions"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
