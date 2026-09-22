@@ -124,7 +124,9 @@ private fun PracticeHud(
         )
         Spacer(Modifier.height(4.dp))
         CurrentNextFingering(current?.chord?:"—",next?.chord?:"—",beatsUntilNext,secondsUntilNext)
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(5.dp))
+        RhythmCoach(s,beatInBar,setRhythm)
+        Spacer(Modifier.height(5.dp))
         LyricsLane(
             s=s,
             onEdit={showLyricsEditor=true},
@@ -132,10 +134,6 @@ private fun PracticeHud(
             onRate=setPlaybackRate,
             onSeek=seekToBeat
         )
-        Spacer(Modifier.height(4.dp))
-        RhythmCoach(s,beatInBar,setRhythm)
-        Spacer(Modifier.height(4.dp))
-        UpcomingStrip(s)
         Spacer(Modifier.weight(1f))
         }
 
@@ -385,7 +383,7 @@ private fun CurrentNextFingering(current:String,next:String,beatsUntilNext:Doubl
     val currentShape=remember(current){UkuleleFingeringEngine.forChord(current)}
     val nextShape=remember(next){UkuleleFingeringEngine.forChord(next)}
     Column(
-        Modifier.fillMaxWidth().height(190.dp)
+        Modifier.fillMaxWidth().height(176.dp)
             .background(Glass,RoundedCornerShape(18.dp))
             .border(1.dp,Line,RoundedCornerShape(18.dp))
             .padding(7.dp)
@@ -443,8 +441,9 @@ private fun FingeringCard(modifier:Modifier,label:String,chord:String,shape:Ukul
                 if(latin.isNotBlank()) Text(latin,color=Fog,fontSize=6.sp,maxLines=1)
             }
         }
-        if(shape!=null)UkuleleDiagram(shape,Modifier.fillMaxWidth().weight(1f).testTag("fingering-diagram"))
-        else Box(Modifier.fillMaxWidth().weight(1f),contentAlignment=Alignment.Center){Text("—",color=Fog,fontSize=18.sp)}
+        Spacer(Modifier.height(2.dp))
+        if(shape!=null)UkuleleDiagram(shape,Modifier.fillMaxWidth().height(98.dp).testTag("fingering-diagram"))
+        else Box(Modifier.fillMaxWidth().height(98.dp),contentAlignment=Alignment.Center){Text("—",color=Fog,fontSize=18.sp)}
     }
 }
 
@@ -532,7 +531,7 @@ private fun LyricsLane(
     val looping=currentIndex>=0&&s.loopLyricIndex==currentIndex
 
     Column(
-        Modifier.fillMaxWidth().height(70.dp).testTag("lyrics-lane")
+        Modifier.fillMaxWidth().height(64.dp).testTag("lyrics-lane")
             .background(Glass,RoundedCornerShape(16.dp))
             .border(1.dp,Line,RoundedCornerShape(16.dp))
             .padding(horizontal=8.dp,vertical=6.dp)
