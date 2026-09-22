@@ -103,38 +103,83 @@ private fun PracticeHud(
     val secondsUntilNext=beatsUntilNext?.times(60.0/s.bpm)
     val beatInBar=floor(s.positionBeats).toInt().mod(s.song.beatsPerBar)+1
 
-    Box(
+    BoxWithConstraints(
         Modifier.fillMaxSize()
             .background(Night)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ){
+        val landscapeCompact = maxWidth > maxHeight && maxHeight < 520.dp
+
         Column(
             Modifier.fillMaxSize()
                 .padding(horizontal=10.dp,vertical=5.dp)
                 .padding(bottom=52.dp)
         ){
-        CompactHeader(
-            title=s.song.title,bpm=s.bpm,key=s.analysisKey,audioOn=s.backingEnabled,
-            exit=exit,menuOpen=menuOpen,setMenuOpen={menuOpen=it},
-            beginner=s.beginnerMode,toggleBeginner=toggleBeginner,
-            backingAvailable=s.backingAvailable,toggleBacking=toggleBacking,
-            haptics=s.barHapticsEnabled,toggleHaptics=toggleHaptics,
-            listening=s.listeningEnabled,listen=listen,
-            analyzed=s.analysisAvailable,editAnalysis=editAnalysis
-        )
-        Spacer(Modifier.height(4.dp))
-        CurrentNextFingering(current?.chord?:"—",next?.chord?:"—",beatsUntilNext,secondsUntilNext)
-        Spacer(Modifier.height(5.dp))
-        RhythmCoach(s,beatInBar,setRhythm)
-        Spacer(Modifier.height(5.dp))
-        LyricsLane(
-            s=s,
-            onEdit={showLyricsEditor=true},
-            onLoop=toggleLyricLoop,
-            onRate=setPlaybackRate,
-            onSeek=seekToBeat
-        )
-        Spacer(Modifier.weight(1f))
+            CompactHeader(
+                title=s.song.title,bpm=s.bpm,key=s.analysisKey,audioOn=s.backingEnabled,
+                exit=exit,menuOpen=menuOpen,setMenuOpen={menuOpen=it},
+                beginner=s.beginnerMode,toggleBeginner=toggleBeginner,
+                backingAvailable=s.backingAvailable,toggleBacking=toggleBacking,
+                haptics=s.barHapticsEnabled,toggleHaptics=toggleHaptics,
+                listening=s.listeningEnabled,listen=listen,
+                analyzed=s.analysisAvailable,editAnalysis=editAnalysis
+            )
+            Spacer(Modifier.height(5.dp))
+
+            if(landscapeCompact){
+                Row(
+                    Modifier.fillMaxWidth().weight(1f),
+                    horizontalArrangement=Arrangement.spacedBy(6.dp)
+                ){
+                    CurrentNextFingering(
+                        current=current?.chord?:"—",
+                        next=next?.chord?:"—",
+                        beatsUntilNext=beatsUntilNext,
+                        secondsUntilNext=secondsUntilNext,
+                        modifier=Modifier.weight(1.35f).fillMaxHeight(),
+                        compact=true
+                    )
+                    Column(
+                        Modifier.weight(.9f).fillMaxHeight(),
+                        verticalArrangement=Arrangement.spacedBy(6.dp)
+                    ){
+                        RhythmCoach(
+                            s=s,
+                            beatInBar=beatInBar,
+                            setRhythm=setRhythm,
+                            modifier=Modifier.fillMaxWidth().weight(1f),
+                            compact=true
+                        )
+                        LyricsLane(
+                            s=s,
+                            onEdit={showLyricsEditor=true},
+                            onLoop=toggleLyricLoop,
+                            onRate=setPlaybackRate,
+                            onSeek=seekToBeat,
+                            modifier=Modifier.fillMaxWidth().weight(1f),
+                            compact=true
+                        )
+                    }
+                }
+            }else{
+                CurrentNextFingering(
+                    current=current?.chord?:"—",
+                    next=next?.chord?:"—",
+                    beatsUntilNext=beatsUntilNext,
+                    secondsUntilNext=secondsUntilNext
+                )
+                Spacer(Modifier.height(5.dp))
+                RhythmCoach(s,beatInBar,setRhythm)
+                Spacer(Modifier.height(5.dp))
+                LyricsLane(
+                    s=s,
+                    onEdit={showLyricsEditor=true},
+                    onLoop=toggleLyricLoop,
+                    onRate=setPlaybackRate,
+                    onSeek=seekToBeat
+                )
+                Spacer(Modifier.weight(1f))
+            }
         }
 
         BottomControls(
