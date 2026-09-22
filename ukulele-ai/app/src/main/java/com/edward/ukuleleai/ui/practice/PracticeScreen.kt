@@ -48,7 +48,7 @@ private val Mint=Color(0xFF70E0B6)
 private val FingerColors=listOf(Color(0xFF64CFF4),Color(0xFFFF6B6B),Color(0xFF70E0B6),Color(0xFFFFC857))
 
 @Composable
-fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},viewModel:PracticeViewModel=viewModel()){
+fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},onTuner:()->Unit={},onSettings:()->Unit={},viewModel:PracticeViewModel=viewModel()){
     val s by viewModel.state.collectAsState()
     val ctx=LocalContext.current
     val ask=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){if(it)viewModel.startListening()}
@@ -74,7 +74,9 @@ fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},viewModel
         saveTappedLyrics=viewModel::saveTappedLyrics,
         autoDistributeLyrics=viewModel::autoDistributeLyrics,
         suggestLyricBeats=viewModel::suggestLyricBeats,
-        seekToBeat=viewModel::seekToBeat
+        seekToBeat=viewModel::seekToBeat,
+        onTuner=onTuner,
+        onSettings=onSettings
     )
 }
 
@@ -87,7 +89,9 @@ private fun PracticeHud(
     saveTappedLyrics:(List<String>,List<Double>)->Unit,
     autoDistributeLyrics:(String)->Unit,
     suggestLyricBeats:(String)->List<Double>,
-    seekToBeat:(Double)->Unit
+    seekToBeat:(Double)->Unit,
+    onTuner:()->Unit,
+    onSettings:()->Unit
 ){
     var menuOpen by remember{mutableStateOf(false)}
     var showLyricsEditor by remember{mutableStateOf(false)}
@@ -122,7 +126,8 @@ private fun PracticeHud(
                 backingAvailable=s.backingAvailable,toggleBacking=toggleBacking,
                 haptics=s.barHapticsEnabled,toggleHaptics=toggleHaptics,
                 listening=s.listeningEnabled,listen=listen,
-                analyzed=s.analysisAvailable,editAnalysis=editAnalysis
+                analyzed=s.analysisAvailable,editAnalysis=editAnalysis,
+                onTuner=onTuner,onSettings=onSettings
             )
             Spacer(Modifier.height(5.dp))
 
@@ -394,7 +399,8 @@ private fun CompactHeader(
     backingAvailable:Boolean,toggleBacking:()->Unit,
     haptics:Boolean,toggleHaptics:()->Unit,
     listening:Boolean,listen:()->Unit,
-    analyzed:Boolean,editAnalysis:()->Unit
+    analyzed:Boolean,editAnalysis:()->Unit,
+    onTuner:()->Unit,onSettings:()->Unit
 ){
     Row(Modifier.fillMaxWidth().height(32.dp),verticalAlignment=Alignment.CenterVertically){
         Box(Modifier.size(30.dp).background(Glass2,CircleShape).clickable(onClick=exit),contentAlignment=Alignment.Center){
@@ -413,6 +419,9 @@ private fun CompactHeader(
                 Text("⋯",color=White,fontSize=19.sp)
             }
             DropdownMenu(expanded=menuOpen,onDismissRequest={setMenuOpen(false)}){
+                DropdownMenuItem(text={Text("Tuner · G C E A")},onClick={setMenuOpen(false);onTuner()})
+                DropdownMenuItem(text={Text("Settings & About")},onClick={setMenuOpen(false);onSettings()})
+                HorizontalDivider()
                 DropdownMenuItem(text={Text(if(beginner)"Use full chords" else "Use beginner triads")},onClick={toggleBeginner();setMenuOpen(false)})
                 if(backingAvailable)DropdownMenuItem(text={Text(if(audioOn)"Mute original audio" else "Play original audio")},onClick={toggleBacking();setMenuOpen(false)})
                 DropdownMenuItem(text={Text(if(haptics)"Beat haptics off" else "Beat haptics on")},onClick={toggleHaptics();setMenuOpen(false)})
