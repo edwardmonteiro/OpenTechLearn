@@ -424,21 +424,28 @@ private fun CompactHeader(
 }
 
 @Composable
-private fun CurrentNextFingering(current:String,next:String,beatsUntilNext:Double?,secondsUntilNext:Double?){
+private fun CurrentNextFingering(
+    current:String,
+    next:String,
+    beatsUntilNext:Double?,
+    secondsUntilNext:Double?,
+    modifier:Modifier=Modifier,
+    compact:Boolean=false
+){
     val currentShape=remember(current){UkuleleFingeringEngine.forChord(current)}
     val nextShape=remember(next){UkuleleFingeringEngine.forChord(next)}
     Column(
-        Modifier.fillMaxWidth().height(176.dp)
+        modifier.then(if(compact) Modifier.fillMaxHeight() else Modifier.fillMaxWidth().height(176.dp))
             .background(Glass,RoundedCornerShape(18.dp))
             .border(1.dp,Line,RoundedCornerShape(18.dp))
             .padding(7.dp)
     ){
         Row(Modifier.fillMaxWidth().weight(1f),horizontalArrangement=Arrangement.spacedBy(5.dp)){
-            FingeringCard(Modifier.weight(1f).testTag("current-chord"),"CURRENT",current,currentShape,true)
+            FingeringCard(Modifier.weight(1f).testTag("current-chord"),"CURRENT",current,currentShape,true,compact)
             FingeringCard(
                 Modifier.weight(1f).testTag("next-chord"),
                 if((beatsUntilNext?:99.0)<=4.0)"GET READY" else "NEXT",
-                next,nextShape,false
+                next,nextShape,false,compact
             )
         }
         Spacer(Modifier.height(4.dp))
@@ -461,7 +468,14 @@ private fun CurrentNextFingering(current:String,next:String,beatsUntilNext:Doubl
 }
 
 @Composable
-private fun FingeringCard(modifier:Modifier,label:String,chord:String,shape:UkuleleFingering?,accent:Boolean){
+private fun FingeringCard(
+    modifier:Modifier,
+    label:String,
+    chord:String,
+    shape:UkuleleFingering?,
+    accent:Boolean,
+    compact:Boolean=false
+){
     Column(
         modifier.background(if(accent)Color(0xFF1B221B)else Glass2,RoundedCornerShape(13.dp))
             .border(1.dp,if(accent)Acid.copy(alpha=.5f)else Line,RoundedCornerShape(13.dp))
@@ -477,8 +491,9 @@ private fun FingeringCard(modifier:Modifier,label:String,chord:String,shape:Ukul
             }
         }
         Spacer(Modifier.height(2.dp))
-        if(shape!=null)UkuleleDiagram(shape,Modifier.fillMaxWidth().height(98.dp).testTag("fingering-diagram"))
-        else Box(Modifier.fillMaxWidth().height(98.dp),contentAlignment=Alignment.Center){Text("—",color=Fog,fontSize=18.sp)}
+        val diagramHeight=if(compact)76.dp else 98.dp
+        if(shape!=null)UkuleleDiagram(shape,Modifier.fillMaxWidth().height(diagramHeight).testTag("fingering-diagram"))
+        else Box(Modifier.fillMaxWidth().height(diagramHeight),contentAlignment=Alignment.Center){Text("—",color=Fog,fontSize=18.sp)}
     }
 }
 
@@ -557,7 +572,9 @@ private fun LyricsLane(
     onEdit:()->Unit,
     onLoop:(Int)->Unit,
     onRate:(Float)->Unit,
-    onSeek:(Double)->Unit
+    onSeek:(Double)->Unit,
+    modifier:Modifier=Modifier,
+    compact:Boolean=false
 ){
     val lyrics=s.song.lyrics
     val currentIndex=lyrics.indexOfLast{s.positionBeats>=it.beat}
@@ -566,7 +583,7 @@ private fun LyricsLane(
     val looping=currentIndex>=0&&s.loopLyricIndex==currentIndex
 
     Column(
-        Modifier.fillMaxWidth().height(64.dp).testTag("lyrics-lane")
+        modifier.then(if(compact) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(64.dp)).testTag("lyrics-lane")
             .background(Glass,RoundedCornerShape(16.dp))
             .border(1.dp,Line,RoundedCornerShape(16.dp))
             .padding(horizontal=8.dp,vertical=6.dp)
@@ -643,14 +660,20 @@ private fun prepareHandsHint(current:String,next:String):String?{
 }
 
 @Composable
-private fun RhythmCoach(s:PracticeState,beatInBar:Int,setRhythm:(RhythmPattern)->Unit){
+private fun RhythmCoach(
+    s:PracticeState,
+    beatInBar:Int,
+    setRhythm:(RhythmPattern)->Unit,
+    modifier:Modifier=Modifier,
+    compact:Boolean=false
+){
     val eighth=(s.positionBeats*2.0).toInt().mod(8)
     val pattern=when(s.rhythmPattern){
         RhythmPattern.BASIC->listOf("↓","·","↓","·","↓","·","↓","·")
         RhythmPattern.GROOVE->listOf("↓","·","↓","↑","·","↑","↓","↑")
     }
     Column(
-        Modifier.fillMaxWidth().height(108.dp).testTag("rhythm-coach")
+        modifier.then(if(compact) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(108.dp)).testTag("rhythm-coach")
             .background(Glass,RoundedCornerShape(16.dp)).border(1.dp,Line,RoundedCornerShape(16.dp)).padding(7.dp)
     ){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
