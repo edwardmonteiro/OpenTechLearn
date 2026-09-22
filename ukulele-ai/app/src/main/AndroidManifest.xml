@@ -5,7 +5,9 @@
 
     <application
         android:allowBackup="true"
-        android:label="Ukulele"
+        android:label="Ukulele Studio"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
         android:theme="@style/Theme.UkuleleAI">
         <activity
             android:name=".MainActivity"
