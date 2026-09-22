@@ -20,7 +20,7 @@ import com.edward.ukuleleai.domain.*
 import com.edward.ukuleleai.ui.analysis.ChordAnalysisEditScreen
 import com.edward.ukuleleai.ui.home.HomeScreen
 import com.edward.ukuleleai.ui.importsong.ImportSongScreen
-import com.edward.ukuleleai.ui.practice.PracticeRoute07
+import com.edward.ukuleleai.ui.practice.PracticeRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -65,7 +65,7 @@ private sealed interface AppScreen{
    if(a==null){LaunchedEffect(current.song.id){screen=AppScreen.Home}}
    else ChordAnalysisEditScreen(a,onBack={localSongs=repository.listSongs();screen=AppScreen.Home},onSaveChord={index,chord->analyzer.editChord(current.song.id,index,chord);localSongs=repository.listSongs();screen=AppScreen.EditAnalysis(repository.get(current.song.id)?:current.song)},onReanalyze={screen=AppScreen.Analyze(current.song)})
   }
-  is AppScreen.Practice->PracticeRoute07(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)})
+  is AppScreen.Practice->PracticeRoute(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)})
  }
 }
 
