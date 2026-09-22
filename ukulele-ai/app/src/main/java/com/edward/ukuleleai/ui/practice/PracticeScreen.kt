@@ -401,27 +401,17 @@ private fun CurrentNextFingering(current:String,next:String,beatsUntilNext:Doubl
             val progress=(1.0-(beatsUntilNext/8.0)).coerceIn(0.0,1.0).toFloat()
             LinearProgressIndicator(
                 progress={progress},modifier=Modifier.fillMaxWidth().height(4.dp),
-                color=if(beatsUntilNext<=4.0)Acid else Mint,trackColor=Glass2
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                when{
-                    beatsUntilNext<=.35->"CHANGE NOW → $next"
-                    beatsUntilNext<=1.0->"NEXT BEAT → $next"
-                    beatsUntilNext<=4.0->"Prepare $next · ${String.format("%.1f",beatsUntilNext)} beats"
-                    else->"$next in ${String.format("%.1f",beatsUntilNext)} beats · ${String.format("%.1f",secondsUntilNext?:0.0)}s"
-                },
-                color=if(beatsUntilNext<=4.0)White else Fog,fontSize=8.sp,
-                fontWeight=if(beatsUntilNext<=1.0)FontWeight.Bold else FontWeight.Medium,maxLines=1
+                color=if(beatsUntilNext<=2.0)Acid else Mint,trackColor=Glass2
             )
         }
-        val handHint=if((beatsUntilNext?:99.0)<=2.0)prepareHandsHint(current,next) else null
-        if(handHint!=null){
-            Spacer(Modifier.height(2.dp))
-            Text(handHint,color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            FingerLegend()
+            Spacer(Modifier.weight(1f))
+            if((beatsUntilNext?:99.0)<=2.0){
+                Text("PREPARE",color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold)
+            }
         }
-        Spacer(Modifier.height(2.dp))
-        FingerLegend()
     }
 }
 
