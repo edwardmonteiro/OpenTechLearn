@@ -29,7 +29,7 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
   LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){item{SongCard(demoSong,"DEMO",progressPercent(demoSong),{onPlaySong(demoSong)})};items(songs,key={it.id}){song->SongCard(song,"ON DEVICE",progressPercent(song),{onPlaySong(song)},{onEditSong(song)})}}
   Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
    Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, fingering, rhythm and synchronized lyrics stay together in one practice HUD.",color=Fog,fontSize=12.sp)}
-   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.14.2",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
+   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.14.4.4",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
   }
  }}
 }
