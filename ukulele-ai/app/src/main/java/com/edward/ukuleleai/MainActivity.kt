@@ -43,10 +43,10 @@ private sealed interface AppScreen{
 }
 
 @Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer,midiImporter:MidiSongImporter){
- var screen by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var localSongs by remember{mutableStateOf(repository.listSongs())}
+ var screen by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var toolReturn by remember{mutableStateOf<AppScreen>(AppScreen.Home)};var localSongs by remember{mutableStateOf(repository.listSongs())}
  fun attach(song:Song,uri:Uri?){if(uri!=null)audioRepository.import(song.id,uri).getOrThrow()}
  when(val current=screen){
-  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)},onSettings={screen=AppScreen.Settings},onTuner={screen=AppScreen.Tuner})
+  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={screen=AppScreen.Practice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)},onSettings={toolReturn=AppScreen.Home;screen=AppScreen.Settings},onTuner={toolReturn=AppScreen.Home;screen=AppScreen.Tuner})
   AppScreen.ImportSong->ImportSongScreen(
    onCancel={screen=AppScreen.Home},
    onSave={repository.saveChart(it)},
@@ -69,9 +69,9 @@ private sealed interface AppScreen{
    if(a==null){LaunchedEffect(current.song.id){screen=AppScreen.Home}}
    else ChordAnalysisEditScreen(a,onBack={localSongs=repository.listSongs();screen=AppScreen.Home},onSaveChord={index,chord->analyzer.editChord(current.song.id,index,chord);localSongs=repository.listSongs();screen=AppScreen.EditAnalysis(repository.get(current.song.id)?:current.song)},onReanalyze={screen=AppScreen.Analyze(current.song)})
   }
-  is AppScreen.Practice->PracticeRoute(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)},onTuner={screen=AppScreen.Tuner},onSettings={screen=AppScreen.Settings})
-  AppScreen.Tuner->TunerScreen(onBack={screen=AppScreen.Home},onSettings={screen=AppScreen.Settings})
-  AppScreen.Settings->SettingsScreen(songCount=localSongs.size,onBack={screen=AppScreen.Home},onTuner={screen=AppScreen.Tuner})
+  is AppScreen.Practice->PracticeRoute(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)},onTuner={toolReturn=current;screen=AppScreen.Tuner},onSettings={toolReturn=current;screen=AppScreen.Settings})
+  AppScreen.Tuner->TunerScreen(onBack={screen=toolReturn},onSettings={screen=AppScreen.Settings})
+  AppScreen.Settings->SettingsScreen(songCount=localSongs.size,onBack={screen=toolReturn},onTuner={screen=AppScreen.Tuner})
  }
 }
 
