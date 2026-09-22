@@ -457,13 +457,7 @@ private fun CurrentNextFingering(
             )
         }
         Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-            FingerLegend()
-            Spacer(Modifier.weight(1f))
-            if((beatsUntilNext?:99.0)<=2.0){
-                Text("PREPARE",color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold)
-            }
-        }
+        FingerLegend()
     }
 }
 
