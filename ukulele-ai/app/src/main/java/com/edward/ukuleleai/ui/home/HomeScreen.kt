@@ -32,30 +32,14 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
     Button(onClick=onAddSong,shape=CircleShape,colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night),contentPadding=PaddingValues(horizontal=21.dp,vertical=11.dp)){Text("＋ Import / Add",fontSize=11.sp,fontWeight=FontWeight.Bold)}
    }
   }
-  Spacer(Modifier.height(18.dp))
-  if(continueSong!=null){
-   Row(
-    Modifier.fillMaxWidth().height(74.dp)
-     .background(Glass,RoundedCornerShape(20.dp))
-     .border(1.dp,Line,RoundedCornerShape(20.dp))
-     .clickable{onPlaySong(continueSong)}
-     .padding(horizontal=18.dp,vertical=12.dp),
-    verticalAlignment=Alignment.CenterVertically
-   ){
-    Column(Modifier.weight(1f)){
-     Text("CONTINUE PRACTICING",color=Acid,fontSize=8.sp,letterSpacing=1.2.sp,fontWeight=FontWeight.Bold)
-     Spacer(Modifier.height(3.dp))
-     Text(continueSong.title,color=White,fontSize=16.sp,fontWeight=FontWeight.Medium,maxLines=1)
-    }
-    Column(horizontalAlignment=Alignment.End){
-     Text("$continuePercent%",color=Mint,fontSize=11.sp,fontWeight=FontWeight.Bold)
-     Text("Resume",color=Fog,fontSize=8.sp)
-    }
+  Spacer(Modifier.height(24.dp));Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
+  LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){
+   if(continueSong!=null){
+    item(key="continue-${continueSong.id}"){ContinueCard(continueSong,continuePercent){onPlaySong(continueSong)}}
    }
-   Spacer(Modifier.height(16.dp))
+   item{SongCard(demoSong,"DEMO",progressPercent(demoSong),{onPlaySong(demoSong)})}
+   items(songs,key={it.id}){song->SongCard(song,"ON DEVICE",progressPercent(song),{onPlaySong(song)},{onEditSong(song)})}
   }
-  Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
-  LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){item{SongCard(demoSong,"DEMO",progressPercent(demoSong),{onPlaySong(demoSong)})};items(songs,key={it.id}){song->SongCard(song,"ON DEVICE",progressPercent(song),{onPlaySong(song)},{onEditSong(song)})}}
   Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
    Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, fingering, rhythm and synchronized lyrics stay together in one practice HUD.",color=Fog,fontSize=12.sp)}
    Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.15",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
@@ -64,3 +48,27 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
 }
 
 @Composable private fun SongCard(song:Song,label:String,progress:Int,onPlay:()->Unit,onEdit:(()->Unit)?=null){Column(Modifier.width(250.dp).height(150.dp).background(Glass,RoundedCornerShape(25.dp)).border(1.dp,Line,RoundedCornerShape(25.dp)).clickable(onClick=onPlay).padding(18.dp),Arrangement.SpaceBetween){Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){Text(label,color=if(label=="DEMO")Acid else Mint,fontSize=8.sp,letterSpacing=1.4.sp,fontWeight=FontWeight.Bold);onEdit?.let{Box(Modifier.background(Glass2,RoundedCornerShape(12.dp)).clickable(onClick=it).padding(horizontal=10.dp,vertical=6.dp)){Text("Edit",color=Fog,fontSize=10.sp)}}};Column{Text(song.title,color=White,fontSize=20.sp,fontWeight=FontWeight.Medium,maxLines=1);Text("${song.bpm} BPM   ·   ${song.events.size} changes",color=Fog,fontSize=10.sp);if(progress>0){Spacer(Modifier.height(10.dp));Box(Modifier.fillMaxWidth().height(2.dp).background(Line,RoundedCornerShape(2.dp))){Box(Modifier.fillMaxWidth(progress/100f).height(2.dp).background(White,RoundedCornerShape(2.dp)))}}}}}
+
+@Composable private fun ContinueCard(song:Song,progress:Int,onPlay:()->Unit){
+ Column(
+  Modifier.width(270.dp).height(150.dp)
+   .background(Color(0xFF151A16),RoundedCornerShape(25.dp))
+   .border(1.dp,Acid.copy(alpha=.55f),RoundedCornerShape(25.dp))
+   .clickable(onClick=onPlay)
+   .padding(18.dp),
+  verticalArrangement=Arrangement.SpaceBetween
+ ){
+  Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){
+   Text("CONTINUE",color=Acid,fontSize=8.sp,letterSpacing=1.4.sp,fontWeight=FontWeight.Bold)
+   Text("$progress%",color=Mint,fontSize=10.sp,fontWeight=FontWeight.Bold)
+  }
+  Column{
+   Text(song.title,color=White,fontSize=20.sp,fontWeight=FontWeight.Medium,maxLines=1)
+   Text("Resume where you left off",color=Fog,fontSize=10.sp)
+   Spacer(Modifier.height(10.dp))
+   Box(Modifier.fillMaxWidth().height(2.dp).background(Line,RoundedCornerShape(2.dp))){
+    Box(Modifier.fillMaxWidth(progress.coerceIn(0,100)/100f).height(2.dp).background(Acid,RoundedCornerShape(2.dp)))
+   }
+  }
+ }
+}
