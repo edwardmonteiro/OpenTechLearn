@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,7 @@ private val Fog=Color(0xFF858F89)
 private val Acid=Color(0xFFDDF45A)
 private val Mint=Color(0xFF70E0B6)
 private val FingerColors=listOf(Color(0xFF64CFF4),Color(0xFFFF6B6B),Color(0xFF70E0B6),Color(0xFFFFC857))
+private enum class TechniqueMode{STRUM,FINGERSTYLE}
 
 @Composable
 fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},onTuner:()->Unit={},onSettings:()->Unit={},viewModel:PracticeViewModel=viewModel()){
@@ -95,6 +97,7 @@ private fun PracticeHud(
 ){
     var menuOpen by remember{mutableStateOf(false)}
     var showLyricsEditor by remember{mutableStateOf(false)}
+    var techniqueMode by remember(s.song.id){mutableStateOf(TechniqueMode.STRUM)}
     var lyricDraft by remember(s.song.id){mutableStateOf(s.song.lyrics.joinToString("\n"){it.text})}
     var tapSyncMode by remember{mutableStateOf(false)}
     var smartReviewMode by remember{mutableStateOf(false)}
@@ -148,9 +151,11 @@ private fun PracticeHud(
                         Modifier.weight(.9f).fillMaxHeight(),
                         verticalArrangement=Arrangement.spacedBy(6.dp)
                     ){
-                        RhythmCoach(
+                        TechniqueCoach(
                             s=s,
                             beatInBar=beatInBar,
+                            mode=techniqueMode,
+                            setMode={techniqueMode=it},
                             setRhythm=setRhythm,
                             modifier=Modifier.fillMaxWidth().weight(1f),
                             compact=true
@@ -174,7 +179,7 @@ private fun PracticeHud(
                     secondsUntilNext=secondsUntilNext
                 )
                 Spacer(Modifier.height(5.dp))
-                RhythmCoach(s,beatInBar,setRhythm)
+                TechniqueCoach(s=s,beatInBar=beatInBar,mode=techniqueMode,setMode={techniqueMode=it},setRhythm=setRhythm)
                 Spacer(Modifier.height(5.dp))
                 LyricsLane(
                     s=s,
@@ -663,50 +668,192 @@ private fun prepareHandsHint(current:String,next:String):String?{
 }
 
 @Composable
-private fun RhythmCoach(
+private fun TechniqueCoach(
     s:PracticeState,
     beatInBar:Int,
+    mode:TechniqueMode,
+    setMode:(TechniqueMode)->Unit,
     setRhythm:(RhythmPattern)->Unit,
     modifier:Modifier=Modifier,
     compact:Boolean=false
+){
+    Column(
+        modifier.then(if(compact) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(108.dp))
+            .testTag("technique-coach")
+            .background(Glass,RoundedCornerShape(16.dp))
+            .border(1.dp,Line,RoundedCornerShape(16.dp))
+            .padding(7.dp)
+    ){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            Text("TECHNIQUE",color=Acid,fontSize=7.sp,letterSpacing=1.sp,fontWeight=FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            TechniqueMode.entries.forEach{item->
+                val selected=mode==item
+                Text(
+                    if(item==TechniqueMode.STRUM)"STRUM" else "FINGERSTYLE",
+                    color=if(selected)Night else Fog,
+                    fontSize=6.sp,fontWeight=FontWeight.Bold,
+                    modifier=Modifier
+                        .background(if(selected)Acid else Glass2,RoundedCornerShape(8.dp))
+                        .clickable{setMode(item)}
+                        .padding(horizontal=7.dp,vertical=4.dp)
+                )
+                Spacer(Modifier.width(3.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        if(mode==TechniqueMode.STRUM){
+            StrumGuide(s=s,beatInBar=beatInBar,setRhythm=setRhythm)
+        }else{
+            FingerstyleBounceGuide(s=s)
+        }
+    }
+}
+
+@Composable
+private fun StrumGuide(
+    s:PracticeState,
+    beatInBar:Int,
+    setRhythm:(RhythmPattern)->Unit
 ){
     val eighth=(s.positionBeats*2.0).toInt().mod(8)
     val pattern=when(s.rhythmPattern){
         RhythmPattern.BASIC->listOf("↓","·","↓","·","↓","·","↓","·")
         RhythmPattern.GROOVE->listOf("↓","·","↓","↑","·","↑","↓","↑")
     }
-    Column(
-        modifier.then(if(compact) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(108.dp)).testTag("rhythm-coach")
-            .background(Glass,RoundedCornerShape(16.dp)).border(1.dp,Line,RoundedCornerShape(16.dp)).padding(7.dp)
-    ){
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-            Column(Modifier.weight(1f)){
-                Text("RHYTHM COACH",color=Acid,fontSize=7.sp,letterSpacing=1.sp,fontWeight=FontWeight.Bold)
-                Text(if(s.rhythmPattern==RhythmPattern.BASIC)"DOWN on 1 · 2 · 3 · 4" else "Groove · ↓  ↓↑  ↑↓↑",color=White,fontSize=8.sp,fontWeight=FontWeight.Medium,maxLines=1)
-            }
-            Row(horizontalArrangement=Arrangement.spacedBy(2.dp)){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Column(Modifier.width(76.dp)){
+            Text(
+                if(s.rhythmPattern==RhythmPattern.BASIC)"BASIC" else "GROOVE",
+                color=White,fontSize=8.sp,fontWeight=FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
                 RhythmPattern.entries.forEach{p->
                     val selected=s.rhythmPattern==p
-                    Box(Modifier.background(if(selected)Acid else Glass2,RoundedCornerShape(7.dp)).clickable{setRhythm(p)}.padding(horizontal=5.dp,vertical=3.dp)){
-                        Text(p.name,color=if(selected)Night else Fog,fontSize=5.sp,fontWeight=FontWeight.Bold)
+                    Box(
+                        Modifier.background(if(selected)Mint else Glass2,RoundedCornerShape(7.dp))
+                            .clickable{setRhythm(p)}
+                            .padding(horizontal=5.dp,vertical=3.dp)
+                    ){
+                        Text(
+                            if(p==RhythmPattern.BASIC)"B" else "G",
+                            color=if(selected)Night else Fog,fontSize=6.sp,fontWeight=FontWeight.Bold
+                        )
                     }
                 }
             }
         }
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(2.dp)){
+        Spacer(Modifier.width(6.dp))
+        Row(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(2.dp)){
             pattern.forEachIndexed{index,stroke->
                 val active=s.isPlaying&&index==eighth
                 Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
-                    Text(if(index%2==0)(index/2+1).toString() else "&",color=if(active)Acid else Fog,fontSize=6.sp)
-                    Box(Modifier.fillMaxWidth().height(32.dp).background(if(active)Acid else Glass2,RoundedCornerShape(7.dp)),contentAlignment=Alignment.Center){
-                        Text(stroke,color=if(active)Night else if(stroke=="·")Fog else White,fontSize=16.sp,fontWeight=FontWeight.Bold)
+                    Text(if(index%2==0)(index/2+1).toString() else "&",color=if(active)Acid else Fog,fontSize=5.sp)
+                    Box(
+                        Modifier.fillMaxWidth().height(30.dp)
+                            .background(if(active)Acid else Glass2,RoundedCornerShape(7.dp)),
+                        contentAlignment=Alignment.Center
+                    ){
+                        Text(stroke,color=if(active)Night else if(stroke=="·")Fog else White,fontSize=15.sp,fontWeight=FontWeight.Bold)
                     }
                 }
             }
         }
+        Spacer(Modifier.width(6.dp))
+        Text("$beatInBar",color=White,fontSize=13.sp,fontWeight=FontWeight.Bold)
+    }
+}
+
+private data class FingerstyleStep(val stringIndex:Int,val stringName:String,val finger:String)
+
+private val BeginnerFingerstylePattern=listOf(
+    FingerstyleStep(0,"G","P"),
+    FingerstyleStep(1,"C","I"),
+    FingerstyleStep(2,"E","M"),
+    FingerstyleStep(3,"A","A"),
+    FingerstyleStep(2,"E","M"),
+    FingerstyleStep(1,"C","I"),
+    FingerstyleStep(0,"G","P"),
+    FingerstyleStep(1,"C","I")
+)
+
+@Composable
+private fun FingerstyleBounceGuide(s:PracticeState){
+    val eighthPosition=(s.positionBeats*2.0).coerceAtLeast(0.0)
+    val absoluteIndex=floor(eighthPosition).toInt()
+    val currentIndex=absoluteIndex.mod(BeginnerFingerstylePattern.size)
+    val nextIndex=(currentIndex+1).mod(BeginnerFingerstylePattern.size)
+    val progress=(eighthPosition-floor(eighthPosition)).toFloat().coerceIn(0f,1f)
+    val current=BeginnerFingerstylePattern[currentIndex]
+    val next=BeginnerFingerstylePattern[nextIndex]
+
+    Column(Modifier.fillMaxSize()){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            Text("ROLL 1",color=Mint,fontSize=6.sp,fontWeight=FontWeight.Bold)
+            Spacer(Modifier.width(6.dp))
+            Text("P · I · M · A · M · I · P · I",color=White,fontSize=7.sp,fontWeight=FontWeight.Medium,maxLines=1)
+            Spacer(Modifier.weight(1f))
+            Text("${current.finger}:${current.stringName} → ${next.finger}:${next.stringName}",color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold)
+        }
         Spacer(Modifier.height(2.dp))
-        Text("Beat $beatInBar/${s.song.beatsPerBar} · yellow = move now",color=Fog,fontSize=6.sp)
+        Canvas(Modifier.fillMaxWidth().weight(1f).testTag("fingerstyle-bounce-guide")){
+            val xs=listOf(size.width*.10f,size.width*.36f,size.width*.64f,size.width*.90f)
+            val baseY=size.height*.72f
+            val arcHeight=size.height*.48f
+            val currentX=xs[current.stringIndex]
+            val nextX=xs[next.stringIndex]
+            val controlX=(currentX+nextX)/2f
+            val controlY=(baseY-arcHeight).coerceAtLeast(size.height*.08f)
+
+            BeginnerFingerstylePattern.distinctBy{it.stringIndex}.forEach{step->
+                val x=xs[step.stringIndex]
+                val active=step.stringIndex==current.stringIndex
+                drawCircle(
+                    color=if(active)Mint else Line,
+                    radius=if(active)7.5f else 5.5f,
+                    center=Offset(x,baseY)
+                )
+                drawCircle(
+                    color=if(active)Mint.copy(alpha=.22f) else Fog.copy(alpha=.08f),
+                    radius=if(active)14f else 9f,
+                    center=Offset(x,baseY)
+                )
+            }
+
+            val arc=Path().apply{
+                moveTo(currentX,baseY)
+                quadraticBezierTo(controlX,controlY,nextX,baseY)
+            }
+            drawPath(
+                path=arc,
+                color=Acid.copy(alpha=.36f),
+                style=Stroke(width=2.2f)
+            )
+
+            val oneMinus=1f-progress
+            val ballX=oneMinus*oneMinus*currentX + 2f*oneMinus*progress*controlX + progress*progress*nextX
+            val ballY=oneMinus*oneMinus*baseY + 2f*oneMinus*progress*controlY + progress*progress*baseY
+            drawCircle(Acid.copy(alpha=.16f),13f,Offset(ballX,ballY))
+            drawCircle(Acid,7.2f,Offset(ballX,ballY))
+
+            val paint=Paint().apply{
+                isAntiAlias=true
+                textAlign=Paint.Align.CENTER
+                typeface=android.graphics.Typeface.DEFAULT_BOLD
+            }
+            BeginnerFingerstylePattern.distinctBy{it.stringIndex}.forEach{step->
+                paint.color=android.graphics.Color.rgb(246,247,243)
+                paint.textSize=11f
+                drawContext.canvas.nativeCanvas.drawText(step.stringName,xs[step.stringIndex],size.height-3f,paint)
+                paint.color=android.graphics.Color.rgb(112,224,182)
+                paint.textSize=8f
+                drawContext.canvas.nativeCanvas.drawText(step.finger,xs[step.stringIndex],baseY+16f,paint)
+            }
+            paint.color=android.graphics.Color.rgb(7,9,8)
+            paint.textSize=8f
+            drawContext.canvas.nativeCanvas.drawText(current.finger,ballX,ballY+3f,paint)
+        }
     }
 }
 
