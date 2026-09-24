@@ -40,5 +40,11 @@ class LocalProgressRepository(context: Context) {
             .apply()
     }
 
+    fun markLastOpened(songId: String) {
+        prefs.edit().putString("last_opened_song_id", songId).apply()
+    }
+
+    fun lastOpenedSongId(): String? = prefs.getString("last_opened_song_id", null)
+
     private fun key(songId: String, field: String) = "$songId.$field"
 }
