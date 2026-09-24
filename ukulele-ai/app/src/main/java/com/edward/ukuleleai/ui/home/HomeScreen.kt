@@ -22,7 +22,7 @@ import com.edward.ukuleleai.domain.Song
 
 private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private val Glass2=Color(0xFF171C19);private val White=Color(0xFFF6F7F3);private val Fog=Color(0xFF858F89);private val Acid=Color(0xFFDDF45A);private val Mint=Color(0xFF70E0B6);private val Line=Color(0xFF262D29)
 
-@Composable fun HomeScreen(songs:List<Song>,demoSong:Song,progressPercent:(Song)->Int,onAddSong:()->Unit,onPlaySong:(Song)->Unit,onEditSong:(Song)->Unit,onSettings:()->Unit,onTuner:()->Unit){
+@Composable fun HomeScreen(songs:List<Song>,demoSong:Song,continueSong:Song?,continuePercent:Int,progressPercent:(Song)->Int,onAddSong:()->Unit,onPlaySong:(Song)->Unit,onEditSong:(Song)->Unit,onSettings:()->Unit,onTuner:()->Unit){
  Box(Modifier.fillMaxSize().background(Night)){Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal=30.dp,vertical=18.dp)){
   Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){
    Column{Text("Ukulele",color=White,fontSize=36.sp,fontWeight=FontWeight.ExtraLight);Text("Import MP3 or MIDI. Learn it offline.",color=Fog,fontSize=13.sp)}
@@ -32,7 +32,29 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
     Button(onClick=onAddSong,shape=CircleShape,colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night),contentPadding=PaddingValues(horizontal=21.dp,vertical=11.dp)){Text("＋ Import / Add",fontSize=11.sp,fontWeight=FontWeight.Bold)}
    }
   }
-  Spacer(Modifier.height(24.dp));Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
+  Spacer(Modifier.height(18.dp))
+  if(continueSong!=null){
+   Row(
+    Modifier.fillMaxWidth().height(74.dp)
+     .background(Glass,RoundedCornerShape(20.dp))
+     .border(1.dp,Line,RoundedCornerShape(20.dp))
+     .clickable{onPlaySong(continueSong)}
+     .padding(horizontal=18.dp,vertical=12.dp),
+    verticalAlignment=Alignment.CenterVertically
+   ){
+    Column(Modifier.weight(1f)){
+     Text("CONTINUE PRACTICING",color=Acid,fontSize=8.sp,letterSpacing=1.2.sp,fontWeight=FontWeight.Bold)
+     Spacer(Modifier.height(3.dp))
+     Text(continueSong.title,color=White,fontSize=16.sp,fontWeight=FontWeight.Medium,maxLines=1)
+    }
+    Column(horizontalAlignment=Alignment.End){
+     Text("$continuePercent%",color=Mint,fontSize=11.sp,fontWeight=FontWeight.Bold)
+     Text("Resume",color=Fog,fontSize=8.sp)
+    }
+   }
+   Spacer(Modifier.height(16.dp))
+  }
+  Text("LIBRARY",color=Fog,fontSize=9.sp,letterSpacing=2.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(12.dp))
   LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){item{SongCard(demoSong,"DEMO",progressPercent(demoSong),{onPlaySong(demoSong)})};items(songs,key={it.id}){song->SongCard(song,"ON DEVICE",progressPercent(song),{onPlaySong(song)},{onEditSong(song)})}}
   Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
    Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, fingering, rhythm and synchronized lyrics stay together in one practice HUD.",color=Fog,fontSize=12.sp)}
