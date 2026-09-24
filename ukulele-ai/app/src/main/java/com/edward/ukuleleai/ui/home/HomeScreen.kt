@@ -22,11 +22,17 @@ import com.edward.ukuleleai.domain.Song
 
 private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private val Glass2=Color(0xFF171C19);private val White=Color(0xFFF6F7F3);private val Fog=Color(0xFF858F89);private val Acid=Color(0xFFDDF45A);private val Mint=Color(0xFF70E0B6);private val Line=Color(0xFF262D29)
 
-@Composable fun HomeScreen(songs:List<Song>,demoSong:Song,continueSong:Song?,continuePercent:Int,progressPercent:(Song)->Int,onAddSong:()->Unit,onPlaySong:(Song)->Unit,onEditSong:(Song)->Unit,onSettings:()->Unit,onTuner:()->Unit){
+@Composable fun HomeScreen(songs:List<Song>,demoSong:Song,continueSong:Song?,continuePercent:Int,progressPercent:(Song)->Int,onAddSong:()->Unit,onPlaySong:(Song)->Unit,onEditSong:(Song)->Unit,onSettings:()->Unit,onTuner:()->Unit,onFingerstyle:()->Unit){
  Box(Modifier.fillMaxSize().background(Night)){Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal=30.dp,vertical=18.dp)){
   Row(Modifier.fillMaxWidth(),Arrangement.SpaceBetween,Alignment.CenterVertically){
    Column{Text("Ukulele",color=White,fontSize=36.sp,fontWeight=FontWeight.ExtraLight);Text("Import MP3 or MIDI. Learn it offline.",color=Fog,fontSize=13.sp)}
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+    Button(
+     onClick=onFingerstyle,
+     shape=RoundedCornerShape(18.dp),
+     colors=ButtonDefaults.buttonColors(containerColor=Glass2,contentColor=Mint),
+     contentPadding=PaddingValues(horizontal=14.dp,vertical=10.dp)
+    ){Text("FINGERSTYLE LAB",fontSize=9.sp,fontWeight=FontWeight.Bold)}
     Box(Modifier.size(42.dp).background(Glass2,CircleShape).clickable(onClick=onTuner),contentAlignment=Alignment.Center){Text("♪",color=Mint,fontSize=18.sp,fontWeight=FontWeight.Bold)}
     Box(Modifier.size(42.dp).background(Glass2,CircleShape).clickable(onClick=onSettings),contentAlignment=Alignment.Center){Text("⚙",color=White,fontSize=17.sp)}
     Button(onClick=onAddSong,shape=CircleShape,colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night),contentPadding=PaddingValues(horizontal=21.dp,vertical=11.dp)){Text("＋ Import / Add",fontSize=11.sp,fontWeight=FontWeight.Bold)}
@@ -42,7 +48,7 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
   }
   Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
    Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, fingering, rhythm and synchronized lyrics stay together in one practice HUD.",color=Fog,fontSize=12.sp)}
-   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.15.1",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
+   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.16.2",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
   }
  }}
 }
