@@ -1,7 +1,13 @@
 <resources>
-    <style name="Theme.UkuleleAI" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.UkuleleAI" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">#070908</item>
+        <item name="android:colorAccent">#DDF45A</item>
+        <item name="android:navigationBarColor">#070908</item>
+        <item name="android:statusBarColor">#070908</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 </resources>
