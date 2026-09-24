@@ -12,8 +12,8 @@ android {
         applicationId = "com.edward.ukuleleai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "0.16.1-visible-technique-toggle"
+        versionCode = 27
+        versionName = "0.16.2-fingerstyle-lab"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
