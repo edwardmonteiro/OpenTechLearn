@@ -24,6 +24,7 @@ import com.edward.ukuleleai.data.song.*
 import com.edward.ukuleleai.domain.*
 import com.edward.ukuleleai.ui.analysis.ChordAnalysisEditScreen
 import com.edward.ukuleleai.ui.home.HomeScreen
+import com.edward.ukuleleai.ui.fingerstyle.FingerstyleLabScreen
 import com.edward.ukuleleai.ui.importsong.ImportSongScreen
 import com.edward.ukuleleai.ui.practice.PracticeRoute
 import com.edward.ukuleleai.ui.tools.SettingsScreen
@@ -46,6 +47,7 @@ private sealed interface AppScreen{
  data class AnalysisError(val song:Song,val message:String):AppScreen
  data object Tuner:AppScreen
  data object Settings:AppScreen
+ data object FingerstyleLab:AppScreen
 }
 
 @Composable private fun UkuleleApp(repository:LocalSongRepository,progressRepository:LocalProgressRepository,audioRepository:LocalAudioRepository,analyzer:OfflineChordAnalyzer,midiImporter:MidiSongImporter){
@@ -59,7 +61,7 @@ private sealed interface AppScreen{
  val continueSong=(listOf(DemoSong.song)+localSongs).firstOrNull{it.id==lastOpenedId}
  val continuePercent=continueSong?.let{progressRepository.load(it.id)?.completionPercent?:0}?:0
  when(val current=screen){
-  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,continueSong=continueSong,continuePercent=continuePercent,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={openPractice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)},onSettings={toolReturn=AppScreen.Home;screen=AppScreen.Settings},onTuner={toolReturn=AppScreen.Home;screen=AppScreen.Tuner})
+  AppScreen.Home->HomeScreen(songs=localSongs,demoSong=DemoSong.song,continueSong=continueSong,continuePercent=continuePercent,progressPercent={progressRepository.load(it.id)?.completionPercent?:0},onAddSong={screen=AppScreen.ImportSong},onPlaySong={openPractice(it)},onEditSong={screen=if(analyzer.cached(it.id)!=null)AppScreen.EditAnalysis(it)else AppScreen.EditSong(it)},onSettings={toolReturn=AppScreen.Home;screen=AppScreen.Settings},onTuner={toolReturn=AppScreen.Home;screen=AppScreen.Tuner},onFingerstyle={screen=AppScreen.FingerstyleLab})
   AppScreen.ImportSong->ImportSongScreen(
    onCancel={screen=AppScreen.Home},
    onSave={repository.saveChart(it)},
@@ -85,6 +87,7 @@ private sealed interface AppScreen{
   is AppScreen.Practice->PracticeRoute(song=current.song,onExit={localSongs=repository.listSongs();screen=AppScreen.Home},onEditAnalysis={screen=AppScreen.EditAnalysis(current.song)},onTuner={toolReturn=current;screen=AppScreen.Tuner},onSettings={toolReturn=current;screen=AppScreen.Settings})
   AppScreen.Tuner->TunerScreen(onBack={screen=toolReturn},onSettings={screen=AppScreen.Settings})
   AppScreen.Settings->SettingsScreen(songCount=localSongs.size,onBack={screen=toolReturn},onTuner={screen=AppScreen.Tuner})
+  AppScreen.FingerstyleLab->FingerstyleLabScreen(onBack={screen=AppScreen.Home})
  }
 }
 
