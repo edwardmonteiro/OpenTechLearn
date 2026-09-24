@@ -47,7 +47,6 @@ private val Fog=Color(0xFF858F89)
 private val Acid=Color(0xFFDDF45A)
 private val Mint=Color(0xFF70E0B6)
 private val FingerColors=listOf(Color(0xFF64CFF4),Color(0xFFFF6B6B),Color(0xFF70E0B6),Color(0xFFFFC857))
-private enum class TechniqueMode{STRUM,FINGERSTYLE}
 
 @Composable
 fun PracticeRoute(song:Song,onExit:()->Unit,onEditAnalysis:()->Unit={},onTuner:()->Unit={},onSettings:()->Unit={},viewModel:PracticeViewModel=viewModel()){
@@ -97,7 +96,6 @@ private fun PracticeHud(
 ){
     var menuOpen by remember{mutableStateOf(false)}
     var showLyricsEditor by remember{mutableStateOf(false)}
-    var techniqueMode by remember(s.song.id){mutableStateOf(TechniqueMode.STRUM)}
     var lyricDraft by remember(s.song.id){mutableStateOf(s.song.lyrics.joinToString("\n"){it.text})}
     var tapSyncMode by remember{mutableStateOf(false)}
     var smartReviewMode by remember{mutableStateOf(false)}
@@ -151,11 +149,9 @@ private fun PracticeHud(
                         Modifier.weight(.9f).fillMaxHeight(),
                         verticalArrangement=Arrangement.spacedBy(6.dp)
                     ){
-                        TechniqueCoach(
+                        RhythmCoach(
                             s=s,
                             beatInBar=beatInBar,
-                            mode=techniqueMode,
-                            setMode={techniqueMode=it},
                             setRhythm=setRhythm,
                             modifier=Modifier.fillMaxWidth().weight(1f),
                             compact=true
@@ -179,7 +175,7 @@ private fun PracticeHud(
                     secondsUntilNext=secondsUntilNext
                 )
                 Spacer(Modifier.height(5.dp))
-                TechniqueCoach(s=s,beatInBar=beatInBar,mode=techniqueMode,setMode={techniqueMode=it},setRhythm=setRhythm)
+                RhythmCoach(s=s,beatInBar=beatInBar,setRhythm=setRhythm)
                 Spacer(Modifier.height(5.dp))
                 LyricsLane(
                     s=s,
@@ -668,63 +664,30 @@ private fun prepareHandsHint(current:String,next:String):String?{
 }
 
 @Composable
-private fun TechniqueCoach(
+private fun RhythmCoach(
     s:PracticeState,
     beatInBar:Int,
-    mode:TechniqueMode,
-    setMode:(TechniqueMode)->Unit,
     setRhythm:(RhythmPattern)->Unit,
     modifier:Modifier=Modifier,
     compact:Boolean=false
 ){
     Column(
         modifier.then(if(compact) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(108.dp))
-            .testTag("technique-coach")
+            .testTag("rhythm-coach")
             .background(Glass,RoundedCornerShape(16.dp))
             .border(1.dp,Line,RoundedCornerShape(16.dp))
             .padding(7.dp)
     ){
-        Column(Modifier.fillMaxWidth()){
-            Row(
-                Modifier.fillMaxWidth().height(30.dp)
-                    .background(Glass2,RoundedCornerShape(10.dp))
-                    .border(1.dp,Line,RoundedCornerShape(10.dp))
-                    .padding(2.dp),
-                horizontalArrangement=Arrangement.spacedBy(3.dp)
-            ){
-                TechniqueMode.entries.forEach{item->
-                    val selected=mode==item
-                    Box(
-                        Modifier.weight(1f).fillMaxHeight()
-                            .background(if(selected)Acid else Glass2,RoundedCornerShape(8.dp))
-                            .clickable{setMode(item)},
-                        contentAlignment=Alignment.Center
-                    ){
-                        Text(
-                            if(item==TechniqueMode.STRUM)"STRUM" else "FINGERSTYLE",
-                            color=if(selected)Night else White,
-                            fontSize=9.sp,
-                            fontWeight=FontWeight.ExtraBold,
-                            letterSpacing=.4.sp
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(3.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            Text("RHYTHM COACH",color=Acid,fontSize=7.sp,letterSpacing=1.sp,fontWeight=FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
             Text(
-                if(mode==TechniqueMode.STRUM)"RHYTHM COACH" else "PIMA · BOUNCING GUIDE",
-                color=if(mode==TechniqueMode.STRUM)Fog else Mint,
-                fontSize=6.sp,
-                fontWeight=FontWeight.Bold,
-                letterSpacing=.8.sp
+                if(s.rhythmPattern==RhythmPattern.BASIC)"BASIC" else "GROOVE",
+                color=Mint,fontSize=7.sp,fontWeight=FontWeight.Bold
             )
         }
-        Spacer(Modifier.height(3.dp))
-        if(mode==TechniqueMode.STRUM){
-            StrumGuide(s=s,beatInBar=beatInBar,setRhythm=setRhythm)
-        }else{
-            FingerstyleBounceGuide(s=s)
-        }
+        Spacer(Modifier.height(4.dp))
+        StrumGuide(s=s,beatInBar=beatInBar,setRhythm=setRhythm)
     }
 }
 
@@ -741,11 +704,6 @@ private fun StrumGuide(
     }
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
         Column(Modifier.width(76.dp)){
-            Text(
-                if(s.rhythmPattern==RhythmPattern.BASIC)"BASIC" else "GROOVE",
-                color=White,fontSize=8.sp,fontWeight=FontWeight.Bold
-            )
-            Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement=Arrangement.spacedBy(3.dp)){
                 RhythmPattern.entries.forEach{p->
                     val selected=s.rhythmPattern==p
