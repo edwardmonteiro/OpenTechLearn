@@ -684,24 +684,42 @@ private fun TechniqueCoach(
             .border(1.dp,Line,RoundedCornerShape(16.dp))
             .padding(7.dp)
     ){
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-            Text("TECHNIQUE",color=Acid,fontSize=7.sp,letterSpacing=1.sp,fontWeight=FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            TechniqueMode.entries.forEach{item->
-                val selected=mode==item
-                Text(
-                    if(item==TechniqueMode.STRUM)"STRUM" else "FINGERSTYLE",
-                    color=if(selected)Night else Fog,
-                    fontSize=6.sp,fontWeight=FontWeight.Bold,
-                    modifier=Modifier
-                        .background(if(selected)Acid else Glass2,RoundedCornerShape(8.dp))
-                        .clickable{setMode(item)}
-                        .padding(horizontal=7.dp,vertical=4.dp)
-                )
-                Spacer(Modifier.width(3.dp))
+        Column(Modifier.fillMaxWidth()){
+            Row(
+                Modifier.fillMaxWidth().height(30.dp)
+                    .background(Glass2,RoundedCornerShape(10.dp))
+                    .border(1.dp,Line,RoundedCornerShape(10.dp))
+                    .padding(2.dp),
+                horizontalArrangement=Arrangement.spacedBy(3.dp)
+            ){
+                TechniqueMode.entries.forEach{item->
+                    val selected=mode==item
+                    Box(
+                        Modifier.weight(1f).fillMaxHeight()
+                            .background(if(selected)Acid else Glass2,RoundedCornerShape(8.dp))
+                            .clickable{setMode(item)},
+                        contentAlignment=Alignment.Center
+                    ){
+                        Text(
+                            if(item==TechniqueMode.STRUM)"STRUM" else "FINGERSTYLE",
+                            color=if(selected)Night else White,
+                            fontSize=9.sp,
+                            fontWeight=FontWeight.ExtraBold,
+                            letterSpacing=.4.sp
+                        )
+                    }
+                }
             }
+            Spacer(Modifier.height(3.dp))
+            Text(
+                if(mode==TechniqueMode.STRUM)"RHYTHM COACH" else "PIMA · BOUNCING GUIDE",
+                color=if(mode==TechniqueMode.STRUM)Fog else Mint,
+                fontSize=6.sp,
+                fontWeight=FontWeight.Bold,
+                letterSpacing=.8.sp
+            )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(3.dp))
         if(mode==TechniqueMode.STRUM){
             StrumGuide(s=s,beatInBar=beatInBar,setRhythm=setRhythm)
         }else{
