@@ -48,10 +48,7 @@ private val Index=Color(0xFFFF6B6B)
 private val Middle=Color(0xFF70E0B6)
 private val Ring=Color(0xFFFFC857)
 
-private val LeftIndex=Color(0xFF64CFF4)
-private val LeftMiddle=Color(0xFFFF6B6B)
 private val LeftRing=Color(0xFF70E0B6)
-private val LeftPinky=Color(0xFFFFC857)
 private val CChordFrets=intArrayOf(0,0,0,3)
 
 private const val BaseBpm=72
@@ -119,42 +116,9 @@ fun FingerstyleLabScreen(onBack:()->Unit){
         Column(
             Modifier.fillMaxSize().padding(horizontal=20.dp,vertical=12.dp)
         ){
-            Row(
-                Modifier.fillMaxWidth().height(52.dp),
-                verticalAlignment=Alignment.CenterVertically
-            ){
-                Box(
-                    Modifier.size(38.dp).background(Glass2,CircleShape).clickable(onClick=onBack),
-                    contentAlignment=Alignment.Center
-                ){Text("‹",color=White,fontSize=25.sp)}
-
-                Spacer(Modifier.width(10.dp))
-
-                Column{
-                    Text("Fingerstyle Basics",color=White,fontSize=21.sp,fontWeight=FontWeight.SemiBold)
-                    Text("Lesson 2 · hold C chord",color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                Text(
-                    "PLAY WHEN THE BALL HITS THE LINE",
-                    color=Fog,fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=.6.sp
-                )
-
-                Spacer(Modifier.width(18.dp))
-
-                Text(
-                    BaseBpm.toString()+" BPM · "+String.format("%.2f×",speed),
-                    color=White,fontSize=8.sp,fontWeight=FontWeight.Bold,
-                    modifier=Modifier.background(Glass2,RoundedCornerShape(12.dp)).padding(horizontal=10.dp,vertical=7.dp)
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            CompactChordGuide(
-                modifier=Modifier.fillMaxWidth().height(82.dp)
+            BigChordNeck(
+                onBack=onBack,
+                modifier=Modifier.fillMaxWidth().height(142.dp)
             )
 
             Spacer(Modifier.height(8.dp))
@@ -243,27 +207,20 @@ fun FingerstyleLabScreen(onBack:()->Unit){
 }
 
 @Composable
-private fun CompactChordGuide(
+private fun BigChordNeck(
+    onBack:()->Unit,
     modifier:Modifier=Modifier
 ){
-    Row(
-        modifier.background(Glass,RoundedCornerShape(18.dp))
-            .border(1.dp,Line,RoundedCornerShape(18.dp))
-            .padding(horizontal=14.dp,vertical=8.dp),
-        verticalAlignment=Alignment.CenterVertically
+    Box(
+        modifier.background(Glass,RoundedCornerShape(22.dp))
+            .border(1.dp,Line,RoundedCornerShape(22.dp))
     ){
-        Column(Modifier.width(88.dp)){
-            Text("LEFT HAND",color=Fog,fontSize=6.sp,fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
-            Text("HOLD C",color=Acid,fontSize=20.sp,fontWeight=FontWeight.ExtraBold)
-            Text("Dó",color=Fog,fontSize=7.sp)
-        }
-
         Canvas(
-            Modifier.width(180.dp).fillMaxHeight()
+            Modifier.fillMaxSize().padding(horizontal=28.dp,vertical=10.dp)
         ){
-            val left=size.width*.22f
-            val right=size.width*.90f
-            val top=size.height*.25f
+            val left=size.width*.20f
+            val right=size.width*.86f
+            val top=size.height*.22f
             val bottom=size.height*.92f
             val stringGap=(right-left)/3f
             val fretGap=(bottom-top)/3f
@@ -274,63 +231,84 @@ private fun CompactChordGuide(
                 typeface=android.graphics.Typeface.DEFAULT_BOLD
             }
 
+            // Chord name: useful, but no extra instructional header.
+            paint.color=android.graphics.Color.rgb(221,244,90)
+            paint.textSize=22f
+            drawContext.canvas.nativeCanvas.drawText("C",size.width*.92f,24f,paint)
+
+            // String labels.
             listOf("G","C","E","A").forEachIndexed{i,label->
                 val x=left+i*stringGap
                 paint.color=android.graphics.Color.rgb(246,247,243)
-                paint.textSize=11f
-                drawContext.canvas.nativeCanvas.drawText(label,x,11f,paint)
+                paint.textSize=18f
+                drawContext.canvas.nativeCanvas.drawText(label,x,20f,paint)
             }
 
+            // Four strings.
             for(i in 0..3){
                 val x=left+i*stringGap
-                drawLine(White.copy(alpha=.72f),Offset(x,top),Offset(x,bottom),1.5f)
+                drawLine(
+                    White.copy(alpha=.82f),
+                    Offset(x,top),
+                    Offset(x,bottom),
+                    if(i==0)2.8f else 2.1f
+                )
             }
+
+            // Nut + frets.
             for(fret in 0..3){
                 val y=top+fret*fretGap
                 drawLine(
-                    if(fret==0)White else Fog.copy(alpha=.42f),
-                    Offset(left,y),Offset(right,y),
-                    if(fret==0)3.2f else 1.2f
+                    if(fret==0)White else Fog.copy(alpha=.58f),
+                    Offset(left,y),
+                    Offset(right,y),
+                    if(fret==0)5f else 2f
                 )
             }
 
-            // Open strings G, C, E.
+            // Large fret numbers on the left.
+            for(fret in 1..3){
+                val y=top+(fret-.5f)*fretGap
+                paint.color=android.graphics.Color.rgb(221,244,90)
+                paint.textSize=18f
+                drawContext.canvas.nativeCanvas.drawText(
+                    fret.toString(),
+                    size.width*.10f,
+                    y+6f,
+                    paint
+                )
+            }
+
+            // Open G/C/E.
             for(i in 0..2){
                 val x=left+i*stringGap
                 drawCircle(
-                    Mint,6.5f,Offset(x,top-8f),
-                    style=Stroke(width=1.8f)
+                    Mint,
+                    11f,
+                    Offset(x,top-15f),
+                    style=Stroke(width=2.6f)
                 )
             }
 
-            // C chord: A string, fret 3. Number = fret, color = left ring finger.
+            // C chord: A string, fret 3.
+            // Number inside is the FRET. Color represents the left-hand finger.
             val dotX=left+3f*stringGap
             val dotY=top+2.5f*fretGap
-            drawCircle(LeftRing,12f,Offset(dotX,dotY))
+            drawCircle(Color.Black.copy(alpha=.25f),25f,Offset(dotX,dotY))
+            drawCircle(LeftRing,20f,Offset(dotX,dotY))
 
             paint.color=android.graphics.Color.rgb(7,9,8)
-            paint.textSize=11f
-            drawContext.canvas.nativeCanvas.drawText("3",dotX,dotY+4f,paint)
-
-            for(fret in 1..3){
-                val y=top+(fret-.5f)*fretGap
-                paint.color=android.graphics.Color.rgb(133,143,137)
-                paint.textSize=8f
-                drawContext.canvas.nativeCanvas.drawText(fret.toString(),size.width*.08f,y+3f,paint)
-            }
+            paint.textSize=19f
+            drawContext.canvas.nativeCanvas.drawText("3",dotX,dotY+7f,paint)
         }
 
-        Spacer(Modifier.width(12.dp))
-
-        Column{
-            Row(verticalAlignment=Alignment.CenterVertically){
-                Box(Modifier.size(11.dp).background(LeftRing,CircleShape))
-                Spacer(Modifier.width(6.dp))
-                Text("A string · fret 3",color=White,fontSize=8.sp,fontWeight=FontWeight.Bold)
-            }
-            Spacer(Modifier.height(3.dp))
-            Text("3 = fret",color=Fog,fontSize=6.sp)
-            Text("green = ring finger",color=Fog,fontSize=6.sp)
+        Box(
+            Modifier.padding(10.dp).size(34.dp)
+                .background(Glass2,CircleShape)
+                .clickable(onClick=onBack),
+            contentAlignment=Alignment.Center
+        ){
+            Text("‹",color=White,fontSize=22.sp)
         }
     }
 }
