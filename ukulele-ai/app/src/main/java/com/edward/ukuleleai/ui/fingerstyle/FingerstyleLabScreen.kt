@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -144,7 +145,7 @@ fun FingerstyleLabScreen(onBack:()->Unit){
                     nextChord=nextChord,
                     stepsUntilChange=(Pattern.size-localStepIndex).coerceAtLeast(0),
                     loopPattern=loopPattern,
-                    modifier=Modifier.width(190.dp).fillMaxHeight()
+                    modifier=Modifier.width(230.dp).fillMaxHeight()
                 )
                 NeckRunner(
                     rawStep=rawStep,
@@ -167,18 +168,24 @@ fun FingerstyleLabScreen(onBack:()->Unit){
                         .padding(horizontal=12.dp),
                     verticalAlignment=Alignment.CenterVertically
                 ){
-                    Text("PATTERN",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+                    Text("RIGHT HAND",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
                     Spacer(Modifier.width(9.dp))
                     Pattern.forEachIndexed{index,event->
                         val active=index==localStepIndex
                         Column(
                             Modifier.weight(1f)
                                 .background(if(active)Acid else Glass2,RoundedCornerShape(8.dp))
-                                .padding(vertical=4.dp),
+                                .padding(vertical=3.dp),
                             horizontalAlignment=Alignment.CenterHorizontally
                         ){
-                            Text(event.finger,color=if(active)Night else White,fontSize=9.sp,fontWeight=FontWeight.Bold)
-                            Text(event.stringName,color=if(active)Night.copy(alpha=.65f) else Fog,fontSize=6.sp)
+                            Box(
+                                Modifier.size(20.dp)
+                                    .background(if(active)Night.copy(alpha=.10f) else Color(0xFF252B28),CircleShape),
+                                contentAlignment=Alignment.Center
+                            ){
+                                Text((index+1).toString(),color=if(active)Night else White,fontSize=8.sp,fontWeight=FontWeight.ExtraBold)
+                            }
+                            Text(event.finger,color=if(active)Night else Mint,fontSize=6.sp,fontWeight=FontWeight.Bold)
                         }
                         if(index<Pattern.lastIndex)Spacer(Modifier.width(3.dp))
                     }
@@ -325,6 +332,12 @@ private fun LeftHandChordPanel(
             Spacer(Modifier.weight(1f))
         }
 
+        Spacer(Modifier.height(4.dp))
+
+        if(fingering!=null){
+            FingeringPlacementSummary(fingering)
+        }
+
         Spacer(Modifier.height(5.dp))
 
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.Center){
@@ -366,30 +379,41 @@ private fun LeftHandChordPanel(
 }
 
 @Composable
+private fun FingeringPlacementSummary(fingering:UkuleleFingering){
+    val stringNames=listOf("G","C","E","A")
+    val items=fingering.frets.mapIndexedNotNull{index,fret->
+        if(fret<=0)null
+        else {
+            val finger=fingering.fingers[index].coerceIn(1,4)
+            "${stringNames[index]}$fret · dedo $finger"
+        }
+    }
+    if(items.isEmpty()){
+        Text("Todas as cordas abertas",color=Fog,fontSize=6.sp,textAlign=TextAlign.Center)
+        return
+    }
+    Text(
+        items.joinToString("   "),
+        color=White,
+        fontSize=6.sp,
+        fontWeight=FontWeight.Bold,
+        textAlign=TextAlign.Center,
+        modifier=Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
 private fun ChordNeckDiagram(
     fingering:UkuleleFingering,
     modifier:Modifier=Modifier
 ){
-    Canvas(modifier.padding(horizontal=18.dp,vertical=4.dp)){
-        val left=size.width*.12f
-        val right=size.width*.88f
-        val top=size.height*.08f
-        val bottom=size.height*.92f
+    Canvas(modifier.padding(horizontal=8.dp,vertical=2.dp)){
+        val left=size.width*.21f
+        val right=size.width*.91f
+        val top=size.height*.16f
+        val bottom=size.height*.90f
         val stringGap=(right-left)/3f
         val fretGap=(bottom-top)/4f
-
-        for(i in 0..3){
-            val x=left+i*stringGap
-            drawLine(White.copy(alpha=.55f),Offset(x,top),Offset(x,bottom),1.6f)
-        }
-        for(f in 0..4){
-            val y=top+f*fretGap
-            drawLine(
-                if(f==0)White else Fog.copy(alpha=.4f),
-                Offset(left,y),Offset(right,y),
-                if(f==0)3.5f else 1.2f
-            )
-        }
 
         val paint=android.graphics.Paint().apply{
             isAntiAlias=true
@@ -397,26 +421,63 @@ private fun ChordNeckDiagram(
             typeface=android.graphics.Typeface.DEFAULT_BOLD
         }
 
+        // String names across the top.
+        listOf("G","C","E","A").forEachIndexed{i,label->
+            val x=left+i*stringGap
+            paint.color=android.graphics.Color.rgb(246,247,243)
+            paint.textSize=12f
+            drawContext.canvas.nativeCanvas.drawText(label,x,12f,paint)
+        }
+
+        // Explicit fret numbers on the left.
+        for(fret in 1..4){
+            val y=top+(fret-.5f)*fretGap
+            paint.color=android.graphics.Color.rgb(133,143,137)
+            paint.textSize=10f
+            drawContext.canvas.nativeCanvas.drawText(fret.toString(),size.width*.08f,y+3f,paint)
+        }
+        paint.color=android.graphics.Color.rgb(133,143,137)
+        paint.textSize=7f
+        drawContext.canvas.nativeCanvas.drawText("FRET",size.width*.08f,top-8f,paint)
+
+        // Stronger strings and fret grid.
+        for(i in 0..3){
+            val x=left+i*stringGap
+            drawLine(White.copy(alpha=.72f),Offset(x,top),Offset(x,bottom),if(i==0)2f else 1.6f)
+        }
+        for(f in 0..4){
+            val y=top+f*fretGap
+            drawLine(
+                if(f==0)White else Fog.copy(alpha=.52f),
+                Offset(left,y),Offset(right,y),
+                if(f==0)4f else 1.5f
+            )
+        }
+
+        // Open strings show a clear 0 above the nut.
         fingering.frets.forEachIndexed{stringIndex,fret->
             val x=left+stringIndex*stringGap
-            if(fret>0){
-                val finger=fingering.fingers[stringIndex].coerceIn(1,4)
-                val y=top+(fret-.5f)*fretGap
-                val radius=minOf(stringGap,fretGap)*.25f
-                drawCircle(FingerColors[finger-1],radius,Offset(x,y))
-                paint.color=android.graphics.Color.rgb(7,9,8)
-                paint.textSize=radius*1.35f
-                drawContext.canvas.nativeCanvas.drawText(finger.toString(),x,y+paint.textSize*.34f,paint)
-            }else{
-                drawCircle(Mint,4f,Offset(x,top-7f))
+            if(fret==0){
+                drawCircle(Glass2,8f,Offset(x,top-11f))
+                drawCircle(Mint,8f,Offset(x,top-11f),style=androidx.compose.ui.graphics.drawscope.Stroke(width=2f))
+                paint.color=android.graphics.Color.rgb(112,224,182)
+                paint.textSize=8f
+                drawContext.canvas.nativeCanvas.drawText("0",x,top-8f,paint)
             }
         }
 
-        paint.color=android.graphics.Color.rgb(133,143,137)
-        paint.textSize=9f
-        listOf("G","C","E","A").forEachIndexed{i,label->
-            val x=left+i*stringGap
-            drawContext.canvas.nativeCanvas.drawText(label,x,size.height-2f,paint)
+        // Fingering dots sit exactly on string + fret center.
+        fingering.frets.forEachIndexed{stringIndex,fret->
+            if(fret<=0)return@forEachIndexed
+            val finger=fingering.fingers[stringIndex].coerceIn(1,4)
+            val x=left+stringIndex*stringGap
+            val y=top+(fret-.5f)*fretGap
+            val radius=minOf(stringGap,fretGap)*.31f
+            drawCircle(Color.Black.copy(alpha=.18f),radius*1.32f,Offset(x,y))
+            drawCircle(FingerColors[finger-1],radius,Offset(x,y))
+            paint.color=android.graphics.Color.rgb(7,9,8)
+            paint.textSize=radius*1.30f
+            drawContext.canvas.nativeCanvas.drawText(finger.toString(),x,y+paint.textSize*.34f,paint)
         }
     }
 }
@@ -445,8 +506,7 @@ private fun NeckRunner(
             neckTop+laneGap*4f
         )
         val eventSpacing=size.width*.135f
-        val capsuleW=size.width*.062f
-        val capsuleH=laneGap*.62f
+        val targetRadius=minOf(size.width*.026f,laneGap*.28f)
 
         drawRoundRect(
             color=Wood,
@@ -464,16 +524,16 @@ private fun NeckRunner(
         val fretCount=9
         for(i in 0..fretCount){
             val x=size.width*.035f+(size.width*.93f/fretCount)*i
-            drawLine(Fog.copy(alpha=.13f),Offset(x,neckTop),Offset(x,neckBottom),if(i==0)3f else 1.2f)
+            drawLine(Fog.copy(alpha=.11f),Offset(x,neckTop),Offset(x,neckBottom),if(i==0)3f else 1f)
         }
 
         val names=listOf("G","C","E","A")
         ys.forEachIndexed{index,y->
             drawLine(
-                if(index==0)White.copy(alpha=.46f) else White.copy(alpha=.34f),
+                if(index==0)White.copy(alpha=.55f) else White.copy(alpha=.40f),
                 Offset(size.width*.035f,y),
                 Offset(size.width*.965f,y),
-                if(index==0)1.7f else 1.25f
+                if(index==0)1.8f else 1.35f
             )
         }
 
@@ -483,7 +543,6 @@ private fun NeckRunner(
             Offset(playX,neckBottom+size.height*.025f),
             3.2f
         )
-        drawCircle(Acid.copy(alpha=.17f),11f,Offset(playX,neckTop-size.height*.045f))
 
         val textPaint=android.graphics.Paint().apply{
             isAntiAlias=true
@@ -494,6 +553,7 @@ private fun NeckRunner(
         textPaint.color=android.graphics.Color.rgb(221,244,90)
         textPaint.textSize=10f
         drawContext.canvas.nativeCanvas.drawText("PLAY LINE",playX,neckTop-size.height*.055f,textPaint)
+
         textPaint.color=android.graphics.Color.rgb(133,143,137)
         textPaint.textSize=8f
         drawContext.canvas.nativeCanvas.drawText("STRINGS",size.width*.04f,neckTop-size.height*.055f,textPaint)
@@ -504,54 +564,89 @@ private fun NeckRunner(
             drawContext.canvas.nativeCanvas.drawText(name,size.width*.018f,ys[index]+4f,textPaint)
         }
 
-        val centerStep=floor(rawStep).toInt()
-        for(eventStep in (centerStep-2)..(centerStep+9)){
-            if(eventStep<0)continue
+        val centerStep=floor(rawStep).toInt().coerceAtLeast(0)
+        val phase=(rawStep-floor(rawStep)).toFloat().coerceIn(0f,1f)
 
-            val mappedStep:Int
-            val eventChord:Int
-            if(loopPattern){
-                mappedStep=eventStep.mod(Pattern.size)
-                eventChord=chordIndex
+        fun eventFor(step:Int):Pair<FingerEvent,Int>?{
+            if(step<0)return null
+            return if(loopPattern){
+                Pattern[step.mod(Pattern.size)] to chordIndex
             }else{
-                if(eventStep>=FirstSong.size*Pattern.size)continue
-                mappedStep=eventStep.mod(Pattern.size)
-                eventChord=eventStep/Pattern.size
+                if(step>=FirstSong.size*Pattern.size)null
+                else Pattern[step.mod(Pattern.size)] to (step/Pattern.size)
             }
+        }
 
-            val event=Pattern[mappedStep]
+        // Numbered future/near targets.
+        for(eventStep in (centerStep-2)..(centerStep+9)){
+            val pair=eventFor(eventStep)?:continue
+            val event=pair.first
+            val eventChord=pair.second
             val x=playX+((eventStep-rawStep)*eventSpacing).toFloat()
-            if(x < -capsuleW || x > size.width+capsuleW)continue
+            if(x < -targetRadius*2f || x > size.width+targetRadius*2f)continue
             val y=ys[event.stringIndex]
-            val isNear=kotlin.math.abs(x-playX)<eventSpacing*.22f
+            val isNear=kotlin.math.abs(x-playX)<eventSpacing*.18f
+            val sequenceNumber=eventStep.mod(Pattern.size)+1
 
-            drawRoundRect(
-                color=if(isNear)Acid else if(eventChord==chordIndex)Mint else Color(0xFF59625D),
-                topLeft=Offset(x-capsuleW/2f,y-capsuleH/2f),
-                size=Size(capsuleW,capsuleH),
-                cornerRadius=CornerRadius(capsuleH/2f,capsuleH/2f)
+            drawCircle(
+                if(isNear)Acid else if(eventChord==chordIndex)Mint else Color(0xFF59625D),
+                targetRadius,
+                Offset(x,y)
             )
-
             if(isNear){
-                drawRoundRect(
-                    color=Acid.copy(alpha=.14f),
-                    topLeft=Offset(x-capsuleW*.68f,y-capsuleH*.75f),
-                    size=Size(capsuleW*1.36f,capsuleH*1.5f),
-                    cornerRadius=CornerRadius(capsuleH,capsuleH)
-                )
+                drawCircle(Acid.copy(alpha=.15f),targetRadius*1.75f,Offset(x,y))
             }
 
             textPaint.color=android.graphics.Color.rgb(7,9,8)
-            textPaint.textSize=12f
-            drawContext.canvas.nativeCanvas.drawText(event.finger,x,y+4f,textPaint)
+            textPaint.textSize=targetRadius*.92f
+            drawContext.canvas.nativeCanvas.drawText(sequenceNumber.toString(),x,y+textPaint.textSize*.34f,textPaint)
 
+            textPaint.color=android.graphics.Color.rgb(246,247,243)
+            textPaint.textSize=7f
+            drawContext.canvas.nativeCanvas.drawText(event.finger,x,y+targetRadius+10f,textPaint)
+        }
+
+        // Yousician-like convex bouncing guide ball from current event to next event.
+        val currentPair=eventFor(centerStep)
+        val nextPair=eventFor(centerStep+1)
+        if(currentPair!=null && nextPair!=null){
+            val currentEvent=currentPair.first
+            val nextEvent=nextPair.first
+            val currentX=playX+((centerStep-rawStep)*eventSpacing).toFloat()
+            val nextX=playX+(((centerStep+1)-rawStep)*eventSpacing).toFloat()
+            val currentY=ys[currentEvent.stringIndex]
+            val nextY=ys[nextEvent.stringIndex]
+
+            val controlX=(currentX+nextX)/2f
+            val controlY=(minOf(currentY,nextY)-laneGap*.95f).coerceAtLeast(neckTop+laneGap*.15f)
+
+            val path=Path().apply{
+                moveTo(currentX,currentY)
+                quadraticBezierTo(controlX,controlY,nextX,nextY)
+            }
+            drawPath(path,Acid.copy(alpha=.28f),style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.2f))
+
+            val one=1f-phase
+            val ballX=one*one*currentX+2f*one*phase*controlX+phase*phase*nextX
+            val ballY=one*one*currentY+2f*one*phase*controlY+phase*phase*nextY
+            val nextNumber=(centerStep+1).mod(Pattern.size)+1
+
+            drawCircle(Acid.copy(alpha=.13f),targetRadius*1.8f,Offset(ballX,ballY))
+            drawCircle(Acid,targetRadius*1.12f,Offset(ballX,ballY))
+            textPaint.color=android.graphics.Color.rgb(7,9,8)
+            textPaint.textSize=targetRadius*.92f
+            drawContext.canvas.nativeCanvas.drawText(nextNumber.toString(),ballX,ballY+textPaint.textSize*.34f,textPaint)
+
+            textPaint.color=android.graphics.Color.rgb(221,244,90)
+            textPaint.textSize=8f
+            drawContext.canvas.nativeCanvas.drawText(nextEvent.finger,ballX,ballY-targetRadius*1.45f,textPaint)
         }
 
         textPaint.color=android.graphics.Color.rgb(133,143,137)
         textPaint.textSize=8f
         drawContext.canvas.nativeCanvas.drawText(
-            "events move ←  ·  pluck when the capsule crosses the line",
-            size.width*.62f,
+            "number = step  ·  letter = right-hand finger  ·  ball lands on PLAY LINE",
+            size.width*.60f,
             size.height*.965f,
             textPaint
         )
@@ -605,12 +700,12 @@ private fun RunnerHelp(onDismiss:()->Unit){
             )
             Spacer(Modifier.height(9.dp))
             Text(
-                "Left side: hold the chord with your left hand using the numbered dots. Right side: follow only P / I / M / A. Pluck when a capsule crosses the yellow PLAY LINE.",
+                "Left side: the chord diagram now shows string names, fret numbers and exact finger dots. Right side: numbered targets 1–8 show the pattern order; P / I / M / A tells which right-hand finger to use.",
                 color=Fog,fontSize=10.sp,textAlign=TextAlign.Center,lineHeight=14.sp
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                "G · C · E · A are only the four string names. You do not need to calculate notes. Start at 0.50×, then move to 0.75× and 1×.",
+                "The yellow ball follows a convex arc toward the next target and lands on the PLAY LINE at the moment to pluck. Start at 0.50×, then move to 0.75× and 1×.",
                 color=White,fontSize=9.sp,textAlign=TextAlign.Center
             )
             Spacer(Modifier.height(14.dp))
