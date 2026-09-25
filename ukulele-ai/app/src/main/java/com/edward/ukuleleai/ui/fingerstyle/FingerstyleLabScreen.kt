@@ -18,18 +18,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.edward.ukuleleai.domain.UkuleleFingering
-import com.edward.ukuleleai.domain.UkuleleFingeringEngine
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.exp
@@ -45,31 +42,29 @@ private val Fog=Color(0xFF858F89)
 private val Acid=Color(0xFFDDF45A)
 private val Mint=Color(0xFF70E0B6)
 private val Line=Color(0xFF303834)
-private val Wood=Color(0xFF151914)
-private val Wood2=Color(0xFF1C211C)
-private val FingerColors=listOf(Color(0xFF64CFF4),Color(0xFFFF6B6B),Color(0xFF70E0B6),Color(0xFFFFC857))
+
+private val Thumb=Color(0xFF64CFF4)
+private val Index=Color(0xFFFF6B6B)
+private val Middle=Color(0xFF70E0B6)
+private val Ring=Color(0xFFFFC857)
 
 private const val BaseBpm=72
 
-private data class FingerEvent(val stringIndex:Int,val stringName:String,val finger:String)
-private data class LessonChord(val name:String,val latin:String,val frets:IntArray)
-
-private val Pattern=listOf(
-    FingerEvent(0,"G","P"),
-    FingerEvent(1,"C","I"),
-    FingerEvent(2,"E","M"),
-    FingerEvent(3,"A","A"),
-    FingerEvent(2,"E","M"),
-    FingerEvent(1,"C","I"),
-    FingerEvent(0,"G","P"),
-    FingerEvent(1,"C","I")
+private data class FingerEvent(
+    val stringIndex:Int,
+    val stringName:String,
+    val finger:String,
+    val fingerName:String,
+    val color:Color
 )
 
-private val FirstSong=listOf(
-    LessonChord("C","Dó",intArrayOf(0,0,0,3)),
-    LessonChord("Am","Lá menor",intArrayOf(2,0,0,0)),
-    LessonChord("F","Fá",intArrayOf(2,0,1,0)),
-    LessonChord("G","Sol",intArrayOf(0,2,3,2))
+private val LessonOne=listOf(
+    FingerEvent(0,"G","P","thumb",Thumb),
+    FingerEvent(1,"C","I","index",Index),
+    FingerEvent(2,"E","M","middle",Middle),
+    FingerEvent(3,"A","A","ring",Ring),
+    FingerEvent(2,"E","M","middle",Middle),
+    FingerEvent(1,"C","I","index",Index)
 )
 
 @Composable
@@ -78,33 +73,22 @@ fun FingerstyleLabScreen(onBack:()->Unit){
     var playing by remember{mutableStateOf(false)}
     var elapsedMs by remember{mutableLongStateOf(0L)}
     var startedAt by remember{mutableLongStateOf(0L)}
-    var loopPattern by remember{mutableStateOf(false)}
-    var loopChordIndex by remember{mutableIntStateOf(0)}
-    var showHelp by remember{mutableStateOf(true)}
-    val engine=remember{FingerstyleAudioEngine()}
+    var loop by remember{mutableStateOf(true)}
+    val engine=remember{OpenStringLessonAudio()}
 
     val stepMs=(60_000.0/BaseBpm/2.0)/speed
-    val chordCount=if(loopPattern)1 else FirstSong.size
-    val totalSteps=chordCount*Pattern.size
-    val totalMs=(stepMs*totalSteps).toLong().coerceAtLeast(1L)
-
-    val rawStep=(elapsedMs/stepMs).coerceIn(0.0,(totalSteps-.0001).coerceAtLeast(0.0))
-    val absoluteStep=floor(rawStep).toInt().coerceAtLeast(0)
-    val localStepIndex=absoluteStep.mod(Pattern.size)
-    val songChordIndex=if(loopPattern)loopChordIndex else (absoluteStep/Pattern.size).coerceIn(0,FirstSong.lastIndex)
-    val chord=FirstSong[songChordIndex]
-    val nextChord=if(loopPattern)chord else FirstSong.getOrNull(songChordIndex+1)
+    val totalMs=(stepMs*LessonOne.size).toLong().coerceAtLeast(1L)
+    val rawStep=(elapsedMs/stepMs).coerceAtLeast(0.0)
 
     DisposableEffect(Unit){onDispose{engine.stop()}}
 
-    LaunchedEffect(playing,speed,loopPattern,loopChordIndex){
+    LaunchedEffect(playing,speed,loop){
         if(playing){
             startedAt=SystemClock.elapsedRealtime()-elapsedMs
-            val chords=if(loopPattern)listOf(FirstSong[loopChordIndex]) else FirstSong
-            engine.playLesson(chords=chords,speed=speed,startMs=elapsedMs,loop=loopPattern)
+            engine.play(speed=speed,startMs=elapsedMs,loop=loop)
             while(playing){
                 val now=SystemClock.elapsedRealtime()-startedAt
-                if(loopPattern){
+                if(loop){
                     elapsedMs=now.mod(totalMs)
                 }else{
                     elapsedMs=now.coerceAtMost(totalMs)
@@ -121,75 +105,64 @@ fun FingerstyleLabScreen(onBack:()->Unit){
         }
     }
 
+    val activeIndex=floor(rawStep).toInt().mod(LessonOne.size)
+
     Box(
         Modifier.fillMaxSize().background(Night).windowInsetsPadding(WindowInsets.safeDrawing)
     ){
         Column(
-            Modifier.fillMaxSize().padding(horizontal=18.dp,vertical=10.dp)
+            Modifier.fillMaxSize().padding(horizontal=20.dp,vertical=12.dp)
         ){
-            RunnerHeader(
-                chord=chord,
-                nextChord=nextChord,
-                speed=speed,
-                onBack=onBack
+            Row(
+                Modifier.fillMaxWidth().height(52.dp),
+                verticalAlignment=Alignment.CenterVertically
+            ){
+                Box(
+                    Modifier.size(38.dp).background(Glass2,CircleShape).clickable(onClick=onBack),
+                    contentAlignment=Alignment.Center
+                ){Text("‹",color=White,fontSize=25.sp)}
+
+                Spacer(Modifier.width(10.dp))
+
+                Column{
+                    Text("Fingerstyle Basics",color=White,fontSize=21.sp,fontWeight=FontWeight.SemiBold)
+                    Text("Lesson 1 · open strings only",color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
+                }
+
+                Spacer(Modifier.weight(1f))
+
+                Text(
+                    "PLAY WHEN THE BALL HITS THE LINE",
+                    color=Fog,fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=.6.sp
+                )
+
+                Spacer(Modifier.width(18.dp))
+
+                Text(
+                    BaseBpm.toString()+" BPM · "+String.format("%.2f×",speed),
+                    color=White,fontSize=8.sp,fontWeight=FontWeight.Bold,
+                    modifier=Modifier.background(Glass2,RoundedCornerShape(12.dp)).padding(horizontal=10.dp,vertical=7.dp)
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            SimpleRunner(
+                rawStep=rawStep,
+                loop=loop,
+                modifier=Modifier.fillMaxWidth().weight(1f)
             )
 
             Spacer(Modifier.height(8.dp))
 
             Row(
-                Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)
-            ){
-                LeftHandChordPanel(
-                    chord=chord,
-                    nextChord=nextChord,
-                    stepsUntilChange=(Pattern.size-localStepIndex).coerceAtLeast(0),
-                    loopPattern=loopPattern,
-                    modifier=Modifier.width(270.dp).fillMaxHeight()
-                )
-                NeckRunner(
-                    rawStep=rawStep,
-                    chordIndex=songChordIndex,
-                    loopPattern=loopPattern,
-                    modifier=Modifier.weight(1f).fillMaxHeight()
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                Modifier.fillMaxWidth().height(58.dp),
+                Modifier.fillMaxWidth().height(62.dp),
                 verticalAlignment=Alignment.CenterVertically
             ){
-                Row(
-                    Modifier.weight(1f).fillMaxHeight()
-                        .background(Glass,RoundedCornerShape(18.dp))
-                        .border(1.dp,Line,RoundedCornerShape(18.dp))
-                        .padding(horizontal=12.dp),
-                    verticalAlignment=Alignment.CenterVertically
-                ){
-                    Text("RIGHT HAND",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
-                    Spacer(Modifier.width(9.dp))
-                    Pattern.forEachIndexed{index,event->
-                        val active=index==localStepIndex
-                        Column(
-                            Modifier.weight(1f)
-                                .background(if(active)Acid else Glass2,RoundedCornerShape(8.dp))
-                                .padding(vertical=3.dp),
-                            horizontalAlignment=Alignment.CenterHorizontally
-                        ){
-                            Box(
-                                Modifier.size(20.dp)
-                                    .background(if(active)Night.copy(alpha=.10f) else Color(0xFF252B28),CircleShape),
-                                contentAlignment=Alignment.Center
-                            ){
-                                Text((index+1).toString(),color=if(active)Night else White,fontSize=8.sp,fontWeight=FontWeight.ExtraBold)
-                            }
-                            Text(event.finger,color=if(active)Night else Mint,fontSize=6.sp,fontWeight=FontWeight.Bold)
-                        }
-                        if(index<Pattern.lastIndex)Spacer(Modifier.width(3.dp))
-                    }
-                }
+                FingerLegend(
+                    activeIndex=activeIndex,
+                    modifier=Modifier.weight(1f).fillMaxHeight()
+                )
 
                 Spacer(Modifier.width(8.dp))
 
@@ -214,7 +187,7 @@ fun FingerstyleLabScreen(onBack:()->Unit){
 
                     Button(
                         onClick={
-                            if(!loopPattern && elapsedMs>=totalMs)elapsedMs=0L
+                            if(!loop && elapsedMs>=totalMs)elapsedMs=0L
                             playing=!playing
                         },
                         modifier=Modifier.width(92.dp).height(38.dp),
@@ -238,222 +211,79 @@ fun FingerstyleLabScreen(onBack:()->Unit){
                     Spacer(Modifier.width(8.dp))
 
                     Text(
-                        if(loopPattern)"LOOP ON" else "LOOP PATTERN",
-                        color=if(loopPattern)Night else Mint,
+                        if(loop)"LOOP ON" else "LOOP",
+                        color=if(loop)Night else Mint,
                         fontSize=7.sp,
                         fontWeight=FontWeight.Bold,
                         modifier=Modifier
-                            .background(if(loopPattern)Mint else Glass2,RoundedCornerShape(10.dp))
+                            .background(if(loop)Mint else Glass2,RoundedCornerShape(10.dp))
                             .clickable{
                                 playing=false
-                                loopChordIndex=songChordIndex
                                 elapsedMs=0L
-                                loopPattern=!loopPattern
+                                loop=!loop
                             }
-                            .padding(horizontal=9.dp,vertical=7.dp)
+                            .padding(horizontal=10.dp,vertical=7.dp)
                     )
                 }
             }
         }
-
-        if(showHelp){
-            RunnerHelp{showHelp=false}
-        }
     }
 }
 
 @Composable
-private fun RunnerHeader(
-    chord:LessonChord,
-    nextChord:LessonChord?,
-    speed:Float,
-    onBack:()->Unit
-){
-    Row(
-        Modifier.fillMaxWidth().height(52.dp),
-        verticalAlignment=Alignment.CenterVertically
-    ){
-        Box(
-            Modifier.size(38.dp).background(Glass2,CircleShape).clickable(onClick=onBack),
-            contentAlignment=Alignment.Center
-        ){Text("‹",color=White,fontSize=25.sp)}
-
-        Spacer(Modifier.width(10.dp))
-
-        Column{
-            Text("Fingerstyle Runner",color=White,fontSize=20.sp,fontWeight=FontWeight.SemiBold)
-            Text("Lesson 1 · C → Am → F → G",color=Fog,fontSize=8.sp)
-        }
-
-        Spacer(Modifier.weight(1f))
-        Text(
-            "LEFT HAND = CHORD   ·   RIGHT HAND = RUNNER",
-            color=Fog,fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=.5.sp
-        )
-        Spacer(Modifier.width(18.dp))
-
-        Text(
-            BaseBpm.toString()+" BPM · "+String.format("%.2f×",speed),
-            color=White,fontSize=8.sp,fontWeight=FontWeight.Bold,
-            modifier=Modifier.background(Glass2,RoundedCornerShape(12.dp)).padding(horizontal=10.dp,vertical=7.dp)
-        )
-    }
-}
-
-@Composable
-private fun LeftHandChordPanel(
-    chord:LessonChord,
-    nextChord:LessonChord?,
-    stepsUntilChange:Int,
-    loopPattern:Boolean,
+private fun FingerLegend(
+    activeIndex:Int,
     modifier:Modifier=Modifier
 ){
-    val fingering=remember(chord.name){UkuleleFingeringEngine.forChord(chord.name)}
-    val prepare=!loopPattern && nextChord!=null && stepsUntilChange<=3
-
-    Column(
-        modifier.background(Glass,RoundedCornerShape(24.dp))
-            .border(1.dp,if(prepare)Acid.copy(alpha=.55f)else Line,RoundedCornerShape(24.dp))
-            .padding(horizontal=12.dp,vertical=10.dp),
-        horizontalAlignment=Alignment.CenterHorizontally
+    Row(
+        modifier.background(Glass,RoundedCornerShape(18.dp))
+            .border(1.dp,Line,RoundedCornerShape(18.dp))
+            .padding(horizontal=12.dp),
+        verticalAlignment=Alignment.CenterVertically
     ){
-        Text("LEFT HAND · HOLD",color=Mint,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
-        Spacer(Modifier.height(2.dp))
-        Row(verticalAlignment=Alignment.Bottom){
-            Text(chord.name,color=Acid,fontSize=30.sp,fontWeight=FontWeight.ExtraBold)
-            Spacer(Modifier.width(6.dp))
-            Text(chord.latin,color=Fog,fontSize=7.sp,modifier=Modifier.padding(bottom=4.dp))
-        }
+        Text("RIGHT HAND",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+        Spacer(Modifier.width(12.dp))
 
-        Spacer(Modifier.height(5.dp))
-
-        if(fingering!=null){
-            LeftHandInstruction(fingering)
-            Spacer(Modifier.height(6.dp))
-            ChordNeckDiagram(
-                fingering=fingering,
-                modifier=Modifier.fillMaxWidth().height(150.dp)
-            )
-            Spacer(Modifier.height(6.dp))
-            FingerColorLegend()
-        }else{
-            Box(Modifier.fillMaxWidth().height(210.dp),contentAlignment=Alignment.Center){
-                Text("No fingering available",color=Fog,fontSize=8.sp)
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Box(
-            Modifier.fillMaxWidth()
-                .background(if(prepare)Acid.copy(alpha=.12f)else Glass2,RoundedCornerShape(10.dp))
-                .border(1.dp,if(prepare)Acid.copy(alpha=.45f)else Line,RoundedCornerShape(10.dp))
-                .padding(horizontal=8.dp,vertical=6.dp)
-        ){
-            Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
-                Text(
-                    if(loopPattern)"KEEP THIS CHORD" else if(prepare)"PREPARE → ${nextChord?.name}" else "NEXT · ${nextChord?.name?:"FINISH"}",
-                    color=if(prepare)Acid else Fog,
-                    fontSize=7.sp,
-                    fontWeight=FontWeight.Bold,
-                    textAlign=TextAlign.Center
-                )
-                if(prepare && nextChord!=null){
-                    Text(nextChord.latin,color=Fog,fontSize=6.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LeftHandInstruction(fingering:UkuleleFingering){
-    val strings=listOf("G","C","E","A")
-    val fingerNames=listOf("","INDEX","MIDDLE","RING","PINKY")
-    val pressed=fingering.frets.mapIndexedNotNull{index,fret->
-        if(fret<=0)null
-        else Triple(strings[index],fret,fingering.fingers[index].coerceIn(1,4))
-    }
-    val open=fingering.frets.mapIndexedNotNull{index,fret->
-        if(fret==0)strings[index] else null
-    }
-
-    Column(
-        Modifier.fillMaxWidth()
-            .background(Color(0xFF151A16),RoundedCornerShape(12.dp))
-            .border(1.dp,Mint.copy(alpha=.30f),RoundedCornerShape(12.dp))
-            .padding(horizontal=8.dp,vertical=6.dp)
-    ){
-        Text("DO THIS",color=Mint,fontSize=6.sp,fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
-        pressed.forEach{(stringName,fret,finger)->
+        LessonOne.forEachIndexed{index,event->
+            val active=index==activeIndex
             Row(
-                Modifier.fillMaxWidth().padding(top=3.dp),
-                verticalAlignment=Alignment.CenterVertically
+                Modifier.weight(1f)
+                    .background(if(active)event.color.copy(alpha=.18f)else Color.Transparent,RoundedCornerShape(9.dp))
+                    .padding(vertical=5.dp,horizontal=4.dp),
+                verticalAlignment=Alignment.CenterVertically,
+                horizontalArrangement=Arrangement.Center
             ){
                 Box(
-                    Modifier.size(18.dp).background(FingerColors[finger-1],CircleShape),
+                    Modifier.size(if(active)24.dp else 20.dp).background(event.color,CircleShape),
                     contentAlignment=Alignment.Center
                 ){
-                    Text(fret.toString(),color=Night,fontSize=8.sp,fontWeight=FontWeight.ExtraBold)
+                    Text(event.finger,color=Night,fontSize=8.sp,fontWeight=FontWeight.ExtraBold)
                 }
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "PRESS $stringName · FRET $fret",
-                    color=White,fontSize=8.sp,fontWeight=FontWeight.ExtraBold
-                )
-                Spacer(Modifier.weight(1f))
-                Text(fingerNames[finger],color=Fog,fontSize=6.sp,fontWeight=FontWeight.Bold)
+                Spacer(Modifier.width(5.dp))
+                Text(event.fingerName,color=if(active)White else Fog,fontSize=6.sp,fontWeight=FontWeight.Bold)
             }
-        }
-        if(open.isNotEmpty()){
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "OPEN · "+open.joinToString(" · "),
-                color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold
-            )
         }
     }
 }
 
 @Composable
-private fun FingerColorLegend(){
-    val labels=listOf("INDEX","MIDDLE","RING","PINKY")
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement=Arrangement.SpaceEvenly
-    ){
-        labels.forEachIndexed{index,label->
-            Row(verticalAlignment=Alignment.CenterVertically){
-                Box(Modifier.size(8.dp).background(FingerColors[index],CircleShape))
-                Spacer(Modifier.width(3.dp))
-                Text(label,color=Fog,fontSize=5.sp,fontWeight=FontWeight.Bold)
-            }
-        }
-    }
-    Spacer(Modifier.height(2.dp))
-    Text(
-        "COLOR = FINGER   ·   NUMBER = FRET",
-        color=Acid,fontSize=6.sp,fontWeight=FontWeight.Bold,textAlign=TextAlign.Center,
-        modifier=Modifier.fillMaxWidth()
-    )
-}
-
-@Composable
-private fun ChordNeckDiagram(
-    fingering:UkuleleFingering,
+private fun SimpleRunner(
+    rawStep:Double,
+    loop:Boolean,
     modifier:Modifier=Modifier
 ){
     Canvas(
-        modifier.background(Color(0xFF0C100E),RoundedCornerShape(12.dp))
-            .border(1.dp,Line,RoundedCornerShape(12.dp))
-            .padding(horizontal=7.dp,vertical=5.dp)
+        modifier.background(Glass,RoundedCornerShape(24.dp))
+            .border(1.dp,Line,RoundedCornerShape(24.dp))
+            .padding(12.dp)
     ){
-        val left=size.width*.20f
-        val right=size.width*.92f
-        val top=size.height*.23f
-        val bottom=size.height*.90f
-        val stringGap=(right-left)/3f
-        val fretGap=(bottom-top)/4f
+        val playX=size.width*.20f
+        val top=size.height*.13f
+        val bottom=size.height*.88f
+        val laneGap=(bottom-top)/3f
+        val ys=listOf(top,top+laneGap,top+laneGap*2f,bottom)
+        val spacing=size.width*.145f
+        val ballRadius=minOf(size.width*.026f,laneGap*.22f)
 
         val paint=android.graphics.Paint().apply{
             isAntiAlias=true
@@ -461,255 +291,96 @@ private fun ChordNeckDiagram(
             typeface=android.graphics.Typeface.DEFAULT_BOLD
         }
 
-        // Columns are the four physical strings.
-        paint.color=android.graphics.Color.rgb(133,143,137)
-        paint.textSize=7f
-        drawContext.canvas.nativeCanvas.drawText("STRING",size.width*.075f,12f,paint)
-
-        listOf("G","C","E","A").forEachIndexed{i,label->
-            val x=left+i*stringGap
-            paint.color=android.graphics.Color.rgb(246,247,243)
-            paint.textSize=14f
-            drawContext.canvas.nativeCanvas.drawText(label,x,14f,paint)
-        }
-
-        // Rows are the frets.
-        paint.color=android.graphics.Color.rgb(133,143,137)
-        paint.textSize=7f
-        drawContext.canvas.nativeCanvas.drawText("FRET",size.width*.075f,top-7f,paint)
-
-        for(fret in 1..4){
-            val y=top+(fret-.5f)*fretGap
-            paint.color=android.graphics.Color.rgb(221,244,90)
-            paint.textSize=11f
-            drawContext.canvas.nativeCanvas.drawText(fret.toString(),size.width*.075f,y+4f,paint)
-        }
-
-        for(i in 0..3){
-            val x=left+i*stringGap
-            drawLine(
-                White.copy(alpha=.82f),
-                Offset(x,top),
-                Offset(x,bottom),
-                if(i==0)2.2f else 1.7f
-            )
-        }
-
-        for(f in 0..4){
-            val y=top+f*fretGap
-            drawLine(
-                if(f==0)White else Fog.copy(alpha=.56f),
-                Offset(left,y),
-                Offset(right,y),
-                if(f==0)4.4f else 1.6f
-            )
-        }
-
-        // Open string marker.
-        fingering.frets.forEachIndexed{stringIndex,fret->
-            if(fret!=0)return@forEachIndexed
-            val x=left+stringIndex*stringGap
-            drawCircle(Glass2,9f,Offset(x,top-13f))
-            drawCircle(
-                Mint,9f,Offset(x,top-13f),
-                style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.2f)
-            )
-            paint.color=android.graphics.Color.rgb(112,224,182)
-            paint.textSize=9f
-            drawContext.canvas.nativeCanvas.drawText("O",x,top-10f,paint)
-        }
-
-        // Yousician-inspired semantics:
-        // x = string, y = fret, color = finger, number inside = fret.
-        fingering.frets.forEachIndexed{stringIndex,fret->
-            if(fret<=0)return@forEachIndexed
-            val finger=fingering.fingers[stringIndex].coerceIn(1,4)
-            val x=left+stringIndex*stringGap
-            val y=top+(fret-.5f)*fretGap
-            val radius=minOf(stringGap,fretGap)*.37f
-
-            drawCircle(Color.Black.copy(alpha=.30f),radius*1.40f,Offset(x,y))
-            drawCircle(FingerColors[finger-1],radius,Offset(x,y))
-
-            paint.color=android.graphics.Color.rgb(7,9,8)
-            paint.textSize=radius*1.38f
-            drawContext.canvas.nativeCanvas.drawText(
-                fret.toString(),
-                x,
-                y+paint.textSize*.34f,
-                paint
-            )
-        }
-    }
-}
-
-@Composable
-private fun NeckRunner(
-    rawStep:Double,
-    chordIndex:Int,
-    loopPattern:Boolean,
-    modifier:Modifier=Modifier
-){
-    Canvas(
-        modifier.background(Glass,RoundedCornerShape(24.dp))
-            .border(1.dp,Line,RoundedCornerShape(24.dp))
-            .padding(10.dp)
-    ){
-        val playX=size.width*.18f
-        val neckTop=size.height*.10f
-        val neckBottom=size.height*.88f
-        val neckHeight=neckBottom-neckTop
-        val laneGap=neckHeight/5f
-        val ys=listOf(
-            neckTop+laneGap,
-            neckTop+laneGap*2f,
-            neckTop+laneGap*3f,
-            neckTop+laneGap*4f
-        )
-        val eventSpacing=size.width*.135f
-        val targetRadius=minOf(size.width*.026f,laneGap*.28f)
-
         drawRoundRect(
-            color=Wood,
-            topLeft=Offset(size.width*.035f,neckTop),
-            size=Size(size.width*.93f,neckHeight),
-            cornerRadius=CornerRadius(22f,22f)
-        )
-        drawRoundRect(
-            color=Wood2.copy(alpha=.35f),
-            topLeft=Offset(size.width*.035f,neckTop),
-            size=Size(size.width*.93f,neckHeight*.18f),
-            cornerRadius=CornerRadius(22f,22f)
+            color=Color(0xFF111512),
+            topLeft=Offset(size.width*.04f,top-laneGap*.32f),
+            size=androidx.compose.ui.geometry.Size(size.width*.92f,(bottom-top)+laneGap*.64f),
+            cornerRadius=androidx.compose.ui.geometry.CornerRadius(22f,22f)
         )
 
-        val fretCount=9
-        for(i in 0..fretCount){
-            val x=size.width*.035f+(size.width*.93f/fretCount)*i
-            drawLine(Fog.copy(alpha=.11f),Offset(x,neckTop),Offset(x,neckBottom),if(i==0)3f else 1f)
-        }
-
-        val names=listOf("G","C","E","A")
+        val stringNames=listOf("G","C","E","A")
         ys.forEachIndexed{index,y->
             drawLine(
-                if(index==0)White.copy(alpha=.55f) else White.copy(alpha=.40f),
-                Offset(size.width*.035f,y),
-                Offset(size.width*.965f,y),
+                White.copy(alpha=.42f),
+                Offset(size.width*.05f,y),
+                Offset(size.width*.96f,y),
                 if(index==0)1.8f else 1.35f
             )
+            paint.color=android.graphics.Color.rgb(246,247,243)
+            paint.textSize=14f
+            drawContext.canvas.nativeCanvas.drawText(stringNames[index],size.width*.022f,y+5f,paint)
         }
 
         drawLine(
             Acid,
-            Offset(playX,neckTop-size.height*.025f),
-            Offset(playX,neckBottom+size.height*.025f),
-            3.2f
+            Offset(playX,top-laneGap*.30f),
+            Offset(playX,bottom+laneGap*.30f),
+            3.4f
         )
 
-        val textPaint=android.graphics.Paint().apply{
-            isAntiAlias=true
-            textAlign=android.graphics.Paint.Align.CENTER
-            typeface=android.graphics.Typeface.DEFAULT_BOLD
+        paint.color=android.graphics.Color.rgb(221,244,90)
+        paint.textSize=10f
+        drawContext.canvas.nativeCanvas.drawText("PLAY",playX,top-laneGap*.39f,paint)
+
+        fun eventFor(step:Int):FingerEvent?{
+            if(step<0)return null
+            return if(loop) LessonOne[step.mod(LessonOne.size)]
+            else LessonOne.getOrNull(step)
         }
 
-        textPaint.color=android.graphics.Color.rgb(221,244,90)
-        textPaint.textSize=10f
-        drawContext.canvas.nativeCanvas.drawText("PLAY LINE",playX,neckTop-size.height*.055f,textPaint)
-
-        textPaint.color=android.graphics.Color.rgb(133,143,137)
-        textPaint.textSize=8f
-        drawContext.canvas.nativeCanvas.drawText("STRINGS",size.width*.04f,neckTop-size.height*.055f,textPaint)
-
-        names.forEachIndexed{index,name->
-            textPaint.color=android.graphics.Color.rgb(246,247,243)
-            textPaint.textSize=13f
-            drawContext.canvas.nativeCanvas.drawText(name,size.width*.018f,ys[index]+4f,textPaint)
-        }
-
-        val centerStep=floor(rawStep).toInt().coerceAtLeast(0)
+        val center=floor(rawStep).toInt().coerceAtLeast(0)
         val phase=(rawStep-floor(rawStep)).toFloat().coerceIn(0f,1f)
 
-        fun eventFor(step:Int):Pair<FingerEvent,Int>?{
-            if(step<0)return null
-            return if(loopPattern){
-                Pattern[step.mod(Pattern.size)] to chordIndex
-            }else{
-                if(step>=FirstSong.size*Pattern.size)null
-                else Pattern[step.mod(Pattern.size)] to (step/Pattern.size)
-            }
-        }
-
-        // Numbered future/near targets.
-        for(eventStep in (centerStep-2)..(centerStep+9)){
-            val pair=eventFor(eventStep)?:continue
-            val event=pair.first
-            val eventChord=pair.second
-            val x=playX+((eventStep-rawStep)*eventSpacing).toFloat()
-            if(x < -targetRadius*2f || x > size.width+targetRadius*2f)continue
+        // Moving colored note balls. Position already tells the string.
+        for(step in (center-1)..(center+7)){
+            val event=eventFor(step)?:continue
+            val x=playX+((step-rawStep)*spacing).toFloat()
+            if(x < -ballRadius*2f || x > size.width+ballRadius*2f)continue
             val y=ys[event.stringIndex]
-            val isNear=kotlin.math.abs(x-playX)<eventSpacing*.18f
-            val sequenceNumber=eventStep.mod(Pattern.size)+1
+            val near=kotlin.math.abs(x-playX)<spacing*.16f
 
-            drawCircle(
-                if(isNear)Acid else if(eventChord==chordIndex)Mint else Color(0xFF59625D),
-                targetRadius,
-                Offset(x,y)
-            )
-            if(isNear){
-                drawCircle(Acid.copy(alpha=.15f),targetRadius*1.75f,Offset(x,y))
+            if(near){
+                drawCircle(event.color.copy(alpha=.16f),ballRadius*1.75f,Offset(x,y))
             }
+            drawCircle(event.color,ballRadius,Offset(x,y))
 
-            textPaint.color=android.graphics.Color.rgb(7,9,8)
-            textPaint.textSize=targetRadius*.92f
-            drawContext.canvas.nativeCanvas.drawText(sequenceNumber.toString(),x,y+textPaint.textSize*.34f,textPaint)
-
-            textPaint.color=android.graphics.Color.rgb(246,247,243)
-            textPaint.textSize=7f
-            drawContext.canvas.nativeCanvas.drawText(event.finger,x,y+targetRadius+10f,textPaint)
+            paint.color=android.graphics.Color.rgb(7,9,8)
+            paint.textSize=ballRadius*.92f
+            drawContext.canvas.nativeCanvas.drawText(event.finger,x,y+paint.textSize*.34f,paint)
         }
 
-        // Yousician-like convex bouncing guide ball from current event to next event.
-        val currentPair=eventFor(centerStep)
-        val nextPair=eventFor(centerStep+1)
-        if(currentPair!=null && nextPair!=null){
-            val currentEvent=currentPair.first
-            val nextEvent=nextPair.first
-            val currentX=playX+((centerStep-rawStep)*eventSpacing).toFloat()
-            val nextX=playX+(((centerStep+1)-rawStep)*eventSpacing).toFloat()
-            val currentY=ys[currentEvent.stringIndex]
-            val nextY=ys[nextEvent.stringIndex]
-
+        // Convex guide arc between current and next string.
+        val current=eventFor(center)
+        val next=eventFor(center+1)
+        if(current!=null && next!=null){
+            val currentX=playX+((center-rawStep)*spacing).toFloat()
+            val nextX=playX+(((center+1)-rawStep)*spacing).toFloat()
+            val currentY=ys[current.stringIndex]
+            val nextY=ys[next.stringIndex]
             val controlX=(currentX+nextX)/2f
-            val controlY=(minOf(currentY,nextY)-laneGap*.95f).coerceAtLeast(neckTop+laneGap*.15f)
+            val controlY=(minOf(currentY,nextY)-laneGap*.72f).coerceAtLeast(top-laneGap*.12f)
 
-            val path=Path().apply{
+            val arc=Path().apply{
                 moveTo(currentX,currentY)
                 quadraticBezierTo(controlX,controlY,nextX,nextY)
             }
-            drawPath(path,Acid.copy(alpha=.28f),style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.2f))
+            drawPath(arc,Acid.copy(alpha=.32f),style=Stroke(width=2.4f))
 
             val one=1f-phase
-            val ballX=one*one*currentX+2f*one*phase*controlX+phase*phase*nextX
-            val ballY=one*one*currentY+2f*one*phase*controlY+phase*phase*nextY
-            val nextNumber=(centerStep+1).mod(Pattern.size)+1
+            val guideX=one*one*currentX+2f*one*phase*controlX+phase*phase*nextX
+            val guideY=one*one*currentY+2f*one*phase*controlY+phase*phase*nextY
 
-            drawCircle(Acid.copy(alpha=.13f),targetRadius*1.8f,Offset(ballX,ballY))
-            drawCircle(Acid,targetRadius*1.12f,Offset(ballX,ballY))
-            textPaint.color=android.graphics.Color.rgb(7,9,8)
-            textPaint.textSize=targetRadius*.92f
-            drawContext.canvas.nativeCanvas.drawText(nextNumber.toString(),ballX,ballY+textPaint.textSize*.34f,textPaint)
-
-            textPaint.color=android.graphics.Color.rgb(221,244,90)
-            textPaint.textSize=8f
-            drawContext.canvas.nativeCanvas.drawText(nextEvent.finger,ballX,ballY-targetRadius*1.45f,textPaint)
+            drawCircle(Acid.copy(alpha=.15f),ballRadius*.95f,Offset(guideX,guideY))
+            drawCircle(Acid,ballRadius*.48f,Offset(guideX,guideY))
         }
 
-        textPaint.color=android.graphics.Color.rgb(133,143,137)
-        textPaint.textSize=8f
+        paint.color=android.graphics.Color.rgb(133,143,137)
+        paint.textSize=8f
         drawContext.canvas.nativeCanvas.drawText(
-            "number = step  ·  letter = right-hand finger  ·  ball lands on PLAY LINE",
+            "G → C → E → A → E → C   ·   no chords yet",
             size.width*.60f,
             size.height*.965f,
-            textPaint
+            paint
         )
     }
 }
@@ -738,67 +409,21 @@ private fun SpeedSelector(speed:Float,onSpeed:(Float)->Unit){
     }
 }
 
-@Composable
-private fun RunnerHelp(onDismiss:()->Unit){
-    Box(
-        Modifier.fillMaxSize().background(Color(0xD9070908)).clickable(onClick=onDismiss),
-        contentAlignment=Alignment.Center
-    ){
-        Column(
-            Modifier.width(560.dp)
-                .background(Color(0xFF111512),RoundedCornerShape(26.dp))
-                .border(1.dp,Line,RoundedCornerShape(26.dp))
-                .padding(24.dp),
-            horizontalAlignment=Alignment.CenterHorizontally
-        ){
-            Text("FINGERSTYLE RUNNER",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.3.sp)
-            Spacer(Modifier.height(9.dp))
-            Text("Read ahead. Hit the line.",color=White,fontSize=24.sp,fontWeight=FontWeight.SemiBold)
-            Spacer(Modifier.height(9.dp))
-            Text(
-                "P = polegar   ·   I = indicador   ·   M = médio   ·   A = anelar",
-                color=Mint,fontSize=10.sp,fontWeight=FontWeight.Bold
-            )
-            Spacer(Modifier.height(9.dp))
-            Text(
-                "Left side: the chord diagram now shows string names, fret numbers and exact finger dots. Right side: numbered targets 1–8 show the pattern order; P / I / M / A tells which right-hand finger to use.",
-                color=Fog,fontSize=10.sp,textAlign=TextAlign.Center,lineHeight=14.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "The yellow ball follows a convex arc toward the next target and lands on the PLAY LINE at the moment to pluck. Start at 0.50×, then move to 0.75× and 1×.",
-                color=White,fontSize=9.sp,textAlign=TextAlign.Center
-            )
-            Spacer(Modifier.height(14.dp))
-            Text("TAP ANYWHERE TO START",color=Acid,fontSize=8.sp,fontWeight=FontWeight.Bold)
-        }
-    }
-}
-
-private class FingerstyleAudioEngine{
+private class OpenStringLessonAudio{
     private var track:AudioTrack?=null
 
-    fun playLesson(
-        chords:List<LessonChord>,
-        speed:Float,
-        startMs:Long,
-        loop:Boolean
-    ){
+    fun play(speed:Float,startMs:Long,loop:Boolean){
         stop()
 
         val sampleRate=44_100
         val stepSeconds=(60.0/BaseBpm/2.0)/speed
-        val totalSteps=chords.size*Pattern.size
-        val totalSamples=(totalSteps*stepSeconds*sampleRate).toInt().coerceAtLeast(1)
+        val totalSamples=(LessonOne.size*stepSeconds*sampleRate).toInt().coerceAtLeast(1)
         val pcm=ShortArray(totalSamples)
-        val openFrequencies=doubleArrayOf(392.00,261.63,329.63,440.00)
+        val frequencies=doubleArrayOf(392.00,261.63,329.63,440.00)
         val pluckSamples=(.20*sampleRate).toInt()
 
-        for(step in 0 until totalSteps){
-            val chord=chords[step/Pattern.size]
-            val event=Pattern[step.mod(Pattern.size)]
-            val fret=chord.frets[event.stringIndex]
-            val frequency=openFrequencies[event.stringIndex]*2.0.pow(fret/12.0)
+        LessonOne.forEachIndexed{step,event->
+            val frequency=frequencies[event.stringIndex]
             val start=(step*stepSeconds*sampleRate).toInt()
 
             for(i in 0 until pluckSamples){
@@ -808,8 +433,8 @@ private class FingerstyleAudioEngine{
                 val env=exp(-15.0*t)
                 val sample=(
                     sin(2.0*PI*frequency*t)+
-                    .32*sin(4.0*PI*frequency*t)+
-                    .12*sin(6.0*PI*frequency*t)
+                    .30*sin(4.0*PI*frequency*t)+
+                    .10*sin(6.0*PI*frequency*t)
                 )*env
                 val value=(sample*7600.0).toInt()
                     .coerceIn(Short.MIN_VALUE.toInt(),Short.MAX_VALUE.toInt())
