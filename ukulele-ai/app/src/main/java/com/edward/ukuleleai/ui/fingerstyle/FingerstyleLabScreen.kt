@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.edward.ukuleleai.domain.UkuleleFingering
+import com.edward.ukuleleai.domain.UkuleleFingeringEngine
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.exp
@@ -44,6 +46,7 @@ private val Mint=Color(0xFF70E0B6)
 private val Line=Color(0xFF303834)
 private val Wood=Color(0xFF151914)
 private val Wood2=Color(0xFF1C211C)
+private val FingerColors=listOf(Color(0xFF64CFF4),Color(0xFFFF6B6B),Color(0xFF70E0B6),Color(0xFFFFC857))
 
 private const val BaseBpm=72
 
@@ -132,12 +135,24 @@ fun FingerstyleLabScreen(onBack:()->Unit){
 
             Spacer(Modifier.height(8.dp))
 
-            NeckRunner(
-                rawStep=rawStep,
-                chordIndex=songChordIndex,
-                loopPattern=loopPattern,
-                modifier=Modifier.fillMaxWidth().weight(1f)
-            )
+            Row(
+                Modifier.fillMaxWidth().weight(1f),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)
+            ){
+                LeftHandChordPanel(
+                    chord=chord,
+                    nextChord=nextChord,
+                    stepsUntilChange=(Pattern.size-localStepIndex).coerceAtLeast(0),
+                    loopPattern=loopPattern,
+                    modifier=Modifier.width(190.dp).fillMaxHeight()
+                )
+                NeckRunner(
+                    rawStep=rawStep,
+                    chordIndex=songChordIndex,
+                    loopPattern=loopPattern,
+                    modifier=Modifier.weight(1f).fillMaxHeight()
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 
@@ -264,19 +279,10 @@ private fun RunnerHeader(
         }
 
         Spacer(Modifier.weight(1f))
-
-        Text("NOW",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold)
-        Spacer(Modifier.width(5.dp))
-        Text(chord.name,color=Acid,fontSize=23.sp,fontWeight=FontWeight.ExtraBold)
-        Spacer(Modifier.width(5.dp))
-        Text(chord.latin,color=Fog,fontSize=8.sp)
-
-        Spacer(Modifier.width(18.dp))
-
-        Text("NEXT",color=Fog,fontSize=7.sp,fontWeight=FontWeight.Bold)
-        Spacer(Modifier.width(5.dp))
-        Text(nextChord?.name?:"FINISH",color=Mint,fontSize=13.sp,fontWeight=FontWeight.Bold)
-
+        Text(
+            "LEFT HAND = CHORD   ·   RIGHT HAND = RUNNER",
+            color=Fog,fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=.5.sp
+        )
         Spacer(Modifier.width(18.dp))
 
         Text(
@@ -284,6 +290,134 @@ private fun RunnerHeader(
             color=White,fontSize=8.sp,fontWeight=FontWeight.Bold,
             modifier=Modifier.background(Glass2,RoundedCornerShape(12.dp)).padding(horizontal=10.dp,vertical=7.dp)
         )
+    }
+}
+
+@Composable
+private fun LeftHandChordPanel(
+    chord:LessonChord,
+    nextChord:LessonChord?,
+    stepsUntilChange:Int,
+    loopPattern:Boolean,
+    modifier:Modifier=Modifier
+){
+    val fingering=remember(chord.name){UkuleleFingeringEngine.forChord(chord.name)}
+    val prepare=!loopPattern && nextChord!=null && stepsUntilChange<=3
+    Column(
+        modifier.background(Glass,RoundedCornerShape(24.dp))
+            .border(1.dp,if(prepare)Acid.copy(alpha=.55f)else Line,RoundedCornerShape(24.dp))
+            .padding(12.dp),
+        horizontalAlignment=Alignment.CenterHorizontally
+    ){
+        Text("LEFT HAND · HOLD",color=Mint,fontSize=7.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(chord.name,color=Acid,fontSize=31.sp,fontWeight=FontWeight.ExtraBold)
+        Text(chord.latin,color=Fog,fontSize=8.sp)
+
+        Spacer(Modifier.height(5.dp))
+
+        if(fingering!=null){
+            ChordNeckDiagram(
+                fingering=fingering,
+                modifier=Modifier.fillMaxWidth().weight(1f)
+            )
+        }else{
+            Spacer(Modifier.weight(1f))
+        }
+
+        Spacer(Modifier.height(5.dp))
+
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.Center){
+            listOf("1","2","3","4").forEachIndexed{i,label->
+                Box(
+                    Modifier.size(19.dp).background(FingerColors[i],CircleShape),
+                    contentAlignment=Alignment.Center
+                ){
+                    Text(label,color=Night,fontSize=8.sp,fontWeight=FontWeight.ExtraBold)
+                }
+                if(i<3)Spacer(Modifier.width(5.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("index · middle · ring · pinky",color=Fog,fontSize=5.sp)
+
+        Spacer(Modifier.height(7.dp))
+
+        Box(
+            Modifier.fillMaxWidth()
+                .background(if(prepare)Acid.copy(alpha=.12f)else Glass2,RoundedCornerShape(10.dp))
+                .border(1.dp,if(prepare)Acid.copy(alpha=.45f)else Line,RoundedCornerShape(10.dp))
+                .padding(horizontal=8.dp,vertical=7.dp)
+        ){
+            Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
+                Text(
+                    if(loopPattern)"KEEP THIS CHORD" else if(prepare)"PREPARE → ${nextChord?.name}" else "NEXT · ${nextChord?.name?:"FINISH"}",
+                    color=if(prepare)Acid else Fog,
+                    fontSize=7.sp,
+                    fontWeight=FontWeight.Bold,
+                    textAlign=TextAlign.Center
+                )
+                if(prepare && nextChord!=null){
+                    Text(nextChord.latin,color=Fog,fontSize=6.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChordNeckDiagram(
+    fingering:UkuleleFingering,
+    modifier:Modifier=Modifier
+){
+    Canvas(modifier.padding(horizontal=18.dp,vertical=4.dp)){
+        val left=size.width*.12f
+        val right=size.width*.88f
+        val top=size.height*.08f
+        val bottom=size.height*.92f
+        val stringGap=(right-left)/3f
+        val fretGap=(bottom-top)/4f
+
+        for(i in 0..3){
+            val x=left+i*stringGap
+            drawLine(White.copy(alpha=.55f),Offset(x,top),Offset(x,bottom),1.6f)
+        }
+        for(f in 0..4){
+            val y=top+f*fretGap
+            drawLine(
+                if(f==0)White else Fog.copy(alpha=.4f),
+                Offset(left,y),Offset(right,y),
+                if(f==0)3.5f else 1.2f
+            )
+        }
+
+        val paint=android.graphics.Paint().apply{
+            isAntiAlias=true
+            textAlign=android.graphics.Paint.Align.CENTER
+            typeface=android.graphics.Typeface.DEFAULT_BOLD
+        }
+
+        fingering.frets.forEachIndexed{stringIndex,fret->
+            val x=left+stringIndex*stringGap
+            if(fret>0){
+                val finger=fingering.fingers[stringIndex].coerceIn(1,4)
+                val y=top+(fret-.5f)*fretGap
+                val radius=minOf(stringGap,fretGap)*.25f
+                drawCircle(FingerColors[finger-1],radius,Offset(x,y))
+                paint.color=android.graphics.Color.rgb(7,9,8)
+                paint.textSize=radius*1.35f
+                drawContext.canvas.nativeCanvas.drawText(finger.toString(),x,y+paint.textSize*.34f,paint)
+            }else{
+                drawCircle(Mint,4f,Offset(x,top-7f))
+            }
+        }
+
+        paint.color=android.graphics.Color.rgb(133,143,137)
+        paint.textSize=9f
+        listOf("G","C","E","A").forEachIndexed{i,label->
+            val x=left+i*stringGap
+            drawContext.canvas.nativeCanvas.drawText(label,x,size.height-2f,paint)
+        }
     }
 }
 
@@ -360,6 +494,9 @@ private fun NeckRunner(
         textPaint.color=android.graphics.Color.rgb(221,244,90)
         textPaint.textSize=10f
         drawContext.canvas.nativeCanvas.drawText("PLAY LINE",playX,neckTop-size.height*.055f,textPaint)
+        textPaint.color=android.graphics.Color.rgb(133,143,137)
+        textPaint.textSize=8f
+        drawContext.canvas.nativeCanvas.drawText("STRINGS",size.width*.04f,neckTop-size.height*.055f,textPaint)
 
         names.forEachIndexed{index,name->
             textPaint.color=android.graphics.Color.rgb(246,247,243)
@@ -408,9 +545,6 @@ private fun NeckRunner(
             textPaint.textSize=12f
             drawContext.canvas.nativeCanvas.drawText(event.finger,x,y+4f,textPaint)
 
-            textPaint.color=android.graphics.Color.rgb(133,143,137)
-            textPaint.textSize=7f
-            drawContext.canvas.nativeCanvas.drawText(FirstSong[eventChord].name,x,neckTop-5f,textPaint)
         }
 
         textPaint.color=android.graphics.Color.rgb(133,143,137)
@@ -471,12 +605,12 @@ private fun RunnerHelp(onDismiss:()->Unit){
             )
             Spacer(Modifier.height(9.dp))
             Text(
-                "The capsules travel from right to left on the ukulele strings. Pluck the indicated string with the indicated finger exactly when the capsule crosses the yellow PLAY LINE.",
+                "Left side: hold the chord with your left hand using the numbered dots. Right side: follow only P / I / M / A. Pluck when a capsule crosses the yellow PLAY LINE.",
                 color=Fog,fontSize=10.sp,textAlign=TextAlign.Center,lineHeight=14.sp
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                "Start at 0.50×. When the pattern feels automatic, move to 0.75× and then 1×.",
+                "G · C · E · A are only the four string names. You do not need to calculate notes. Start at 0.50×, then move to 0.75× and 1×.",
                 color=White,fontSize=9.sp,textAlign=TextAlign.Center
             )
             Spacer(Modifier.height(14.dp))
