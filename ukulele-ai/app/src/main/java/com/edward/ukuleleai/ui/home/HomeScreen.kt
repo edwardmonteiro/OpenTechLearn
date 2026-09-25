@@ -32,7 +32,7 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
      shape=RoundedCornerShape(18.dp),
      colors=ButtonDefaults.buttonColors(containerColor=Glass2,contentColor=Mint),
      contentPadding=PaddingValues(horizontal=14.dp,vertical=10.dp)
-    ){Text("FINGERSTYLE RUNNER",fontSize=9.sp,fontWeight=FontWeight.Bold)}
+    ){Text("FINGERSTYLE BASICS",fontSize=9.sp,fontWeight=FontWeight.Bold)}
     Box(Modifier.size(42.dp).background(Glass2,CircleShape).clickable(onClick=onTuner),contentAlignment=Alignment.Center){Text("♪",color=Mint,fontSize=18.sp,fontWeight=FontWeight.Bold)}
     Box(Modifier.size(42.dp).background(Glass2,CircleShape).clickable(onClick=onSettings),contentAlignment=Alignment.Center){Text("⚙",color=White,fontSize=17.sp)}
     Button(onClick=onAddSong,shape=CircleShape,colors=ButtonDefaults.buttonColors(containerColor=White,contentColor=Night),contentPadding=PaddingValues(horizontal=21.dp,vertical=11.dp)){Text("＋ Import / Add",fontSize=11.sp,fontWeight=FontWeight.Bold)}
@@ -48,7 +48,7 @@ private val Night=Color(0xFF070908);private val Glass=Color(0xFF101412);private 
   }
   Spacer(Modifier.height(20.dp));Row(Modifier.fillMaxWidth().weight(1f).background(Glass,RoundedCornerShape(30.dp)).border(1.dp,Line,RoundedCornerShape(30.dp)).padding(26.dp),Arrangement.SpaceBetween,Alignment.Bottom){
    Column(Modifier.weight(1f)){Text("PLAY ALONG",color=Mint,fontSize=9.sp,letterSpacing=1.8.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(8.dp));Text("Hear it. See it. Play it.",color=White,fontSize=27.sp,fontWeight=FontWeight.ExtraLight);Spacer(Modifier.height(7.dp));Text("Current chord, next chord, fingering, rhythm and synchronized lyrics stay together in one practice HUD.",color=Fog,fontSize=12.sp)}
-   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.16.6",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
+   Column(horizontalAlignment=Alignment.End){Text("STUDIO 0.17.0",color=Acid,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(7.dp));Text("Offline chords",color=Fog,fontSize=10.sp);Text("Listen · Learn · Play",color=Fog,fontSize=10.sp);Text("Samsung safe area",color=Fog,fontSize=10.sp)}
   }
  }}
 }
