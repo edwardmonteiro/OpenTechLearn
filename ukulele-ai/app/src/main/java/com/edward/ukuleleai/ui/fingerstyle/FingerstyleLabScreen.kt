@@ -48,6 +48,12 @@ private val Index=Color(0xFFFF6B6B)
 private val Middle=Color(0xFF70E0B6)
 private val Ring=Color(0xFFFFC857)
 
+private val LeftIndex=Color(0xFF64CFF4)
+private val LeftMiddle=Color(0xFFFF6B6B)
+private val LeftRing=Color(0xFF70E0B6)
+private val LeftPinky=Color(0xFFFFC857)
+private val CChordFrets=intArrayOf(0,0,0,3)
+
 private const val BaseBpm=72
 
 private data class FingerEvent(
@@ -74,7 +80,7 @@ fun FingerstyleLabScreen(onBack:()->Unit){
     var elapsedMs by remember{mutableLongStateOf(0L)}
     var startedAt by remember{mutableLongStateOf(0L)}
     var loop by remember{mutableStateOf(true)}
-    val engine=remember{OpenStringLessonAudio()}
+    val engine=remember{OneChordLessonAudio()}
 
     val stepMs=(60_000.0/BaseBpm/2.0)/speed
     val totalMs=(stepMs*LessonOne.size).toLong().coerceAtLeast(1L)
@@ -126,7 +132,7 @@ fun FingerstyleLabScreen(onBack:()->Unit){
 
                 Column{
                     Text("Fingerstyle Basics",color=White,fontSize=21.sp,fontWeight=FontWeight.SemiBold)
-                    Text("Lesson 1 · open strings only",color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
+                    Text("Lesson 2 · hold C chord",color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold)
                 }
 
                 Spacer(Modifier.weight(1f))
@@ -145,7 +151,13 @@ fun FingerstyleLabScreen(onBack:()->Unit){
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
+
+            CompactChordGuide(
+                modifier=Modifier.fillMaxWidth().height(82.dp)
+            )
+
+            Spacer(Modifier.height(8.dp))
 
             SimpleRunner(
                 rawStep=rawStep,
@@ -226,6 +238,99 @@ fun FingerstyleLabScreen(onBack:()->Unit){
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactChordGuide(
+    modifier:Modifier=Modifier
+){
+    Row(
+        modifier.background(Glass,RoundedCornerShape(18.dp))
+            .border(1.dp,Line,RoundedCornerShape(18.dp))
+            .padding(horizontal=14.dp,vertical=8.dp),
+        verticalAlignment=Alignment.CenterVertically
+    ){
+        Column(Modifier.width(88.dp)){
+            Text("LEFT HAND",color=Fog,fontSize=6.sp,fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
+            Text("HOLD C",color=Acid,fontSize=20.sp,fontWeight=FontWeight.ExtraBold)
+            Text("Dó",color=Fog,fontSize=7.sp)
+        }
+
+        Canvas(
+            Modifier.width(180.dp).fillMaxHeight()
+        ){
+            val left=size.width*.22f
+            val right=size.width*.90f
+            val top=size.height*.25f
+            val bottom=size.height*.92f
+            val stringGap=(right-left)/3f
+            val fretGap=(bottom-top)/3f
+
+            val paint=android.graphics.Paint().apply{
+                isAntiAlias=true
+                textAlign=android.graphics.Paint.Align.CENTER
+                typeface=android.graphics.Typeface.DEFAULT_BOLD
+            }
+
+            listOf("G","C","E","A").forEachIndexed{i,label->
+                val x=left+i*stringGap
+                paint.color=android.graphics.Color.rgb(246,247,243)
+                paint.textSize=11f
+                drawContext.canvas.nativeCanvas.drawText(label,x,11f,paint)
+            }
+
+            for(i in 0..3){
+                val x=left+i*stringGap
+                drawLine(White.copy(alpha=.72f),Offset(x,top),Offset(x,bottom),1.5f)
+            }
+            for(fret in 0..3){
+                val y=top+fret*fretGap
+                drawLine(
+                    if(fret==0)White else Fog.copy(alpha=.42f),
+                    Offset(left,y),Offset(right,y),
+                    if(fret==0)3.2f else 1.2f
+                )
+            }
+
+            // Open strings G, C, E.
+            for(i in 0..2){
+                val x=left+i*stringGap
+                drawCircle(
+                    Mint,6.5f,Offset(x,top-8f),
+                    style=Stroke(width=1.8f)
+                )
+            }
+
+            // C chord: A string, fret 3. Number = fret, color = left ring finger.
+            val dotX=left+3f*stringGap
+            val dotY=top+2.5f*fretGap
+            drawCircle(LeftRing,12f,Offset(dotX,dotY))
+
+            paint.color=android.graphics.Color.rgb(7,9,8)
+            paint.textSize=11f
+            drawContext.canvas.nativeCanvas.drawText("3",dotX,dotY+4f,paint)
+
+            for(fret in 1..3){
+                val y=top+(fret-.5f)*fretGap
+                paint.color=android.graphics.Color.rgb(133,143,137)
+                paint.textSize=8f
+                drawContext.canvas.nativeCanvas.drawText(fret.toString(),size.width*.08f,y+3f,paint)
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column{
+            Row(verticalAlignment=Alignment.CenterVertically){
+                Box(Modifier.size(11.dp).background(LeftRing,CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Text("A string · fret 3",color=White,fontSize=8.sp,fontWeight=FontWeight.Bold)
+            }
+            Spacer(Modifier.height(3.dp))
+            Text("3 = fret",color=Fog,fontSize=6.sp)
+            Text("green = ring finger",color=Fog,fontSize=6.sp)
         }
     }
 }
@@ -377,7 +482,7 @@ private fun SimpleRunner(
         paint.color=android.graphics.Color.rgb(133,143,137)
         paint.textSize=8f
         drawContext.canvas.nativeCanvas.drawText(
-            "G → C → E → A → E → C   ·   no chords yet",
+            "HOLD C   ·   G → C → E → A → E → C",
             size.width*.60f,
             size.height*.965f,
             paint
@@ -409,7 +514,7 @@ private fun SpeedSelector(speed:Float,onSpeed:(Float)->Unit){
     }
 }
 
-private class OpenStringLessonAudio{
+private class OneChordLessonAudio{
     private var track:AudioTrack?=null
 
     fun play(speed:Float,startMs:Long,loop:Boolean){
@@ -423,7 +528,8 @@ private class OpenStringLessonAudio{
         val pluckSamples=(.20*sampleRate).toInt()
 
         LessonOne.forEachIndexed{step,event->
-            val frequency=frequencies[event.stringIndex]
+            val fret=CChordFrets[event.stringIndex]
+            val frequency=frequencies[event.stringIndex]*2.0.pow(fret/12.0)
             val start=(step*stepSeconds*sampleRate).toInt()
 
             for(i in 0 until pluckSamples){
