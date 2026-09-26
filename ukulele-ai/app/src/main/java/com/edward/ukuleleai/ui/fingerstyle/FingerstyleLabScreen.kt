@@ -216,14 +216,14 @@ private fun BigChordNeck(
             .border(1.dp,Line,RoundedCornerShape(22.dp))
     ){
         Canvas(
-            Modifier.fillMaxSize().padding(horizontal=28.dp,vertical=10.dp)
+            Modifier.fillMaxSize().padding(horizontal=24.dp,vertical=10.dp)
         ){
-            val left=size.width*.20f
-            val right=size.width*.86f
-            val top=size.height*.22f
-            val bottom=size.height*.92f
-            val stringGap=(right-left)/3f
-            val fretGap=(bottom-top)/3f
+            val left=size.width*.12f
+            val right=size.width*.94f
+            val top=size.height*.26f
+            val bottom=size.height*.88f
+            val laneGap=(bottom-top)/3f
+            val fretGap=(right-left)/3f
 
             val paint=android.graphics.Paint().apply{
                 isAntiAlias=true
@@ -231,84 +231,84 @@ private fun BigChordNeck(
                 typeface=android.graphics.Typeface.DEFAULT_BOLD
             }
 
-            // Chord name: useful, but no extra instructional header.
+            // Chord label, large but unobtrusive.
             paint.color=android.graphics.Color.rgb(221,244,90)
-            paint.textSize=22f
-            drawContext.canvas.nativeCanvas.drawText("C",size.width*.92f,24f,paint)
+            paint.textSize=28f
+            drawContext.canvas.nativeCanvas.drawText("C",size.width*.965f,28f,paint)
 
-            // String labels.
+            // String labels on the left.
             listOf("G","C","E","A").forEachIndexed{i,label->
-                val x=left+i*stringGap
+                val y=top+i*laneGap
                 paint.color=android.graphics.Color.rgb(246,247,243)
-                paint.textSize=18f
-                drawContext.canvas.nativeCanvas.drawText(label,x,20f,paint)
+                paint.textSize=22f
+                drawContext.canvas.nativeCanvas.drawText(label,size.width*.055f,y+8f,paint)
             }
 
-            // Four strings.
+            // Four horizontal strings.
             for(i in 0..3){
-                val x=left+i*stringGap
+                val y=top+i*laneGap
                 drawLine(
-                    White.copy(alpha=.82f),
-                    Offset(x,top),
-                    Offset(x,bottom),
-                    if(i==0)2.8f else 2.1f
-                )
-            }
-
-            // Nut + frets.
-            for(fret in 0..3){
-                val y=top+fret*fretGap
-                drawLine(
-                    if(fret==0)White else Fog.copy(alpha=.58f),
+                    White.copy(alpha=.86f),
                     Offset(left,y),
                     Offset(right,y),
-                    if(fret==0)5f else 2f
+                    if(i==0)3f else 2.3f
                 )
             }
 
-            // Large fret numbers on the left.
+            // Nut + three fret columns.
+            for(fret in 0..3){
+                val x=left+fret*fretGap
+                drawLine(
+                    if(fret==0)White else Fog.copy(alpha=.58f),
+                    Offset(x,top-laneGap*.35f),
+                    Offset(x,bottom+laneGap*.35f),
+                    if(fret==0)5f else 2.2f
+                )
+            }
+
+            // Large fret numbers across the top.
             for(fret in 1..3){
-                val y=top+(fret-.5f)*fretGap
+                val x=left+(fret-.5f)*fretGap
                 paint.color=android.graphics.Color.rgb(221,244,90)
-                paint.textSize=18f
+                paint.textSize=22f
                 drawContext.canvas.nativeCanvas.drawText(
                     fret.toString(),
-                    size.width*.10f,
-                    y+6f,
+                    x,
+                    top-laneGap*.52f,
                     paint
                 )
             }
 
-            // Open G/C/E.
+            // Open markers on G, C, E.
             for(i in 0..2){
-                val x=left+i*stringGap
+                val y=top+i*laneGap
                 drawCircle(
                     Mint,
-                    11f,
-                    Offset(x,top-15f),
-                    style=Stroke(width=2.6f)
+                    12f,
+                    Offset(left-16f,y),
+                    style=Stroke(width=2.8f)
                 )
             }
 
-            // C chord: A string, fret 3.
-            // Number inside is the FRET. Color represents the left-hand finger.
-            val dotX=left+3f*stringGap
-            val dotY=top+2.5f*fretGap
-            drawCircle(Color.Black.copy(alpha=.25f),25f,Offset(dotX,dotY))
-            drawCircle(LeftRing,20f,Offset(dotX,dotY))
+            // C chord: A string, fret 3. Horizontal neck:
+            // y selects the A string; x selects fret 3.
+            val dotY=top+3f*laneGap
+            val dotX=left+2.5f*fretGap
+            drawCircle(Color.Black.copy(alpha=.25f),30f,Offset(dotX,dotY))
+            drawCircle(LeftRing,24f,Offset(dotX,dotY))
 
             paint.color=android.graphics.Color.rgb(7,9,8)
-            paint.textSize=19f
-            drawContext.canvas.nativeCanvas.drawText("3",dotX,dotY+7f,paint)
+            paint.textSize=24f
+            drawContext.canvas.nativeCanvas.drawText("3",dotX,dotY+9f,paint)
         }
 
         Box(
-            Modifier.padding(10.dp).size(34.dp)
+            Modifier.padding(10.dp).size(36.dp)
                 .background(Glass2,CircleShape)
                 .clickable(onClick=onBack),
             contentAlignment=Alignment.Center
         ){
-            Text("‹",color=White,fontSize=22.sp)
+            Text("‹",color=White,fontSize=24.sp)
         }
     }
 }
